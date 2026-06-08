@@ -1,172 +1,261 @@
 {% extends 'base.html' %}
-{% load i18n %}
+{% load static %}
 
-{% block title %}{{ event.title }} - {% trans "Event Management" %}{% endblock %}
+{% block title %}{{ event.name }} - KbfEven{% endblock %}
 
 {% block content %}
-<div class="mb-4 animate-fade-in">
-    <nav aria-label="breadcrumb">
-        <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="{% url 'events:event_list' %}">{% trans "My Events" %}</a></li>
-            <li class="breadcrumb-item active">{{ event.title }}</li>
-        </ol>
-    </nav>
-</div>
-
-<div class="row animate-fade-in-up">
-    <div class="col-12 col-lg-8">
-        <div class="card shadow-sm mb-4 border-0">
-            {% if event.event_photo %}
-            <img src="{{ event.event_photo.url }}" class="card-img-top event-photo-detail" alt="{{ event.title }}">
-            {% endif %}
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-start">
-                    <h3 class="card-title">{{ event.title }}</h3>
+<div class="max-w-7xl mx-auto">
+    <!-- En-tete -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+        <div>
+            <a href="/events/" class="text-purple-400 hover:underline text-sm">
+                Retour a mes evenements
+            </a>
+            <h1 class="text-2xl md:text-3xl font-bold mt-1">{{ event.name }}</h1>
+            <div class="flex flex-wrap gap-2 mt-1">
+                <span class="text-xs bg-purple-500/20 px-2 py-0.5 rounded-full">{{ event.get_event_type_display }}</span>
+                <span class="text-xs text-gray-400">{{ event.date|date:"d F Y" }}{% if event.time %} a {{ event.time|time:"H:i" }}{% endif %}</span>
+            </div>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'events:event_update' event.slug %}" class="btn-gradient px-4 py-2 rounded-lg text-sm">
+                Modifier
+            </a>
+            <button onclick="showDeleteModal()" class="bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg text-sm transition">
+                Supprimer
+            </button>
+        </div>
+    </div>
+    
+    <!-- Statistiques -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="glass-card p-4 text-center">
+            <div class="text-2xl font-bold text-purple-400">{{ stats.total_invited }}</div>
+            <div class="text-xs text-gray-400">Invites</div>
+        </div>
+        <div class="glass-card p-4 text-center">
+            <div class="text-2xl font-bold text-cyan-400">{{ stats.total_responses }}</div>
+            <div class="text-xs text-gray-400">Reponses</div>
+        </div>
+        <div class="glass-card p-4 text-center">
+            <div class="text-2xl font-bold text-purple-400">{{ stats.attendance_rate }}%</div>
+            <div class="text-xs text-gray-400">Taux presence</div>
+        </div>
+        <div class="glass-card p-4 text-center">
+            <div class="text-2xl font-bold text-cyan-400">{{ stats.expected_guests }}</div>
+            <div class="text-xs text-gray-400">Personnes attendues</div>
+        </div>
+    </div>
+    
+    <div class="grid lg:grid-cols-3 gap-6">
+        
+        <!-- Colonne gauche -->
+        <div class="space-y-6">
+            
+            <!-- Informations -->
+            <div class="glass-card p-5">
+                <h2 class="text-lg font-semibold mb-3">Informations</h2>
+                <div class="space-y-2 text-sm">
+                    <p><span class="text-gray-400">Lieu :</span> {{ event.location }}</p>
+                    {% if event.google_maps_link %}
+                        <p><a href="{{ event.google_maps_link }}" target="_blank" class="text-cyan-400 hover:underline">
+                            Voir sur Google Maps
+                        </a></p>
+                    {% endif %}
+                    {% if event.dress_code %}
+                        <p><span class="text-gray-400">Code vestimentaire :</span> {{ event.dress_code }}</p>
+                    {% endif %}
+                    {% if event.description %}
+                        <p><span class="text-gray-400">Description :</span> {{ event.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Liens -->
+            <div class="glass-card p-5">
+                <h2 class="text-lg font-semibold mb-3">Liens d'invitation</h2>
+                <div class="space-y-3">
                     <div>
-                        <a href="{% url 'events:edit_event' event.id %}" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-pencil"></i> {% trans "Edit" %}
-                        </a>
+                        <label class="text-xs text-gray-400 block mb-1">Lien invites (RSVP)</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="rsvp-link" value="{{ request.scheme }}://{{ request.get_host }}{{ rsvp_url }}" readonly class="flex-1 p-2 rounded-lg bg-white/5 border border-white/20 text-xs">
+                            <button onclick="copyLink('rsvp-link')" class="px-3 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30">
+                                Copier
+                            </button>
+                        </div>
+                        <button onclick="shareWhatsApp('rsvp-link')" class="w-full mt-2 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-sm">
+                            Partager sur WhatsApp
+                        </button>
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-400 block mb-1">Lien co-organisateurs</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="coorg-link" value="{{ request.scheme }}://{{ request.get_host }}{{ coorganizer_url }}" readonly class="flex-1 p-2 rounded-lg bg-white/5 border border-white/20 text-xs">
+                            <button onclick="copyLink('coorg-link')" class="px-3 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30">
+                                Copier
+                            </button>
+                        </div>
+                        <button onclick="shareWhatsApp('coorg-link')" class="w-full mt-2 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 text-sm">
+                            Partager sur WhatsApp
+                        </button>
                     </div>
                 </div>
-                <hr>
-                <div class="row g-3">
-                    <div class="col-12 col-sm-6">
-                        <p class="mb-1"><strong><i class="bi bi-tag me-1"></i>{% trans "Type" %}:</strong>
-                            {{ event.get_event_type_display }}{% if event.event_type_other %} - {{ event.event_type_other }}{% endif %}</p>
-                        <p class="mb-1"><strong><i class="bi bi-geo-alt me-1"></i>{% trans "Location" %}:</strong> {{ event.location_name }}</p>
-                        <p class="mb-1"><strong><i class="bi bi-clock me-1"></i>{% trans "Date" %}:</strong> {{ event.event_date|date:"l d F Y H:i" }}</p>
+            </div>
+            
+            <!-- Co-organisateurs -->
+            <div class="glass-card p-5">
+                <h2 class="text-lg font-semibold mb-3">Co-organisateurs</h2>
+                {% if collaborators %}
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2 p-2 rounded-lg bg-purple-500/10">
+                            <div>
+                                <p class="text-sm font-semibold">{{ event.main_organizer.first_name }} {{ event.main_organizer.last_name }}</p>
+                                <p class="text-xs text-gray-400">Organisateur principal</p>
+                            </div>
+                        </div>
+                        {% for collab in collaborators %}
+                            <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                                <div>
+                                    <p class="text-sm font-semibold">{{ collab.user.first_name }} {{ collab.user.last_name }}</p>
+                                    <p class="text-xs text-gray-400">{{ collab.user.email }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
                     </div>
-                    <div class="col-12 col-sm-6">
-                        <p class="mb-1"><strong><i class="bi bi-cup-straw me-1"></i>{% trans "Drinks" %}:</strong></p>
-                        <ul class="mb-1">
-                            {% for drink in event.get_drinks_list %}
-                            <li>{{ drink }}</li>
-                            {% endfor %}
-                        </ul>
-                        <p class="mb-1"><strong><i class="bi bi-tshirt me-1"></i>{% trans "Dress code" %}:</strong> {{ event.dress_code }}</p>
-                    </div>
-                </div>
-                {% if event.description %}
-                <hr>
-                <p><strong>{% trans "Description" %}:</strong></p>
-                <p>{{ event.description }}</p>
+                {% else %}
+                    <p class="text-center text-gray-400 text-sm py-4">Aucun co-organisateur.</p>
                 {% endif %}
-                <hr>
-                <p class="text-muted small mb-0">
-                    {% trans "Status" %}:
-                    {% if event.is_published %}
-                    <span class="badge bg-success">{% trans "Published" %}</span>
-                    {% else %}
-                    <span class="badge bg-warning text-dark">{% trans "Draft" %}</span>
-                    {% endif %}
-                    {% if event.is_past %}
-                    <span class="badge bg-secondary">{% trans "Past event" %}</span>
-                    {% endif %}
+            </div>
+        </div>
+        
+        <!-- Colonne droite -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Reponses -->
+            <div class="glass-card p-5">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-semibold">Reponses des invites</h2>
+                    <div class="flex gap-2 text-xs">
+                        <span class="text-green-400">{{ stats.will_attend }} presents</span>
+                        <span class="text-red-400">{{ stats.total_responses|add:-stats.will_attend }} absents</span>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="border-b border-gray-700">
+                            <tr class="text-left text-gray-400">
+                                <th class="pb-2">Invite</th>
+                                <th class="pb-2">Presence</th>
+                                <th class="pb-2">Boisson</th>
+                                <th class="pb-2">Verifie</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for response in recent_responses %}
+                                <tr class="border-b border-gray-800">
+                                    <td class="py-2">
+                                        {{ response.name }}
+                                        <div class="text-xs text-gray-500">{{ response.email }}</div>
+                                    </td>
+                                    <td class="py-2">
+                                        {% if response.will_attend %}
+                                            <span class="text-green-400">Oui</span>
+                                            {% if response.number_of_guests > 1 %}
+                                                <span class="text-xs text-gray-400"> (+{{ response.number_of_guests|add:-1 }})</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-red-400">Non</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-2">{{ response.drink_choice|default:"-" }}</td>
+                                    <td class="py-2">
+                                        {% if response.verification_status == 'verified' %}
+                                            <span class="text-green-400">Verifie</span>
+                                        {% else %}
+                                            <span class="text-yellow-400">Non verifie</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% empty %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-8 text-gray-400">
+                                        Aucune reponse.
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Gestion invites -->
+            <div class="glass-card p-5">
+                <h2 class="text-lg font-semibold mb-3">Gestion des invites</h2>
+                <div class="flex flex-wrap gap-3">
+                    <a href="#" class="px-4 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-sm">
+                        Importer Excel
+                    </a>
+                    <a href="#" class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm">
+                        Ajouter manuellement
+                    </a>
+                    <a href="#" class="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-sm">
+                        Exporter CSV
+                    </a>
+                </div>
+                <p class="text-xs text-gray-400 mt-3">
+                    {{ stats.total_invited }} invites pre-enregistres | {{ stats.verified }} verifies | {{ stats.unverified }} non verifies
                 </p>
             </div>
         </div>
     </div>
+</div>
 
-    <div class="col-12 col-lg-4">
-        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up stagger-1">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-bar-chart me-1"></i>{% trans "Statistics" %}</h5>
-                <div class="row g-2 text-center">
-                    <div class="col-6 mb-2">
-                        <div class="p-3 bg-light rounded">
-                            <div class="stat-value text-primary">{{ stats.total }}</div>
-                            <div class="stat-label text-muted">{% trans "Total" %}</div>
-                        </div>
-                    </div>
-                    <div class="col-6 mb-2">
-                        <div class="p-3 bg-light rounded">
-                            <div class="stat-value text-success">{{ stats.confirmed }}</div>
-                            <div class="stat-label text-muted">{% trans "Confirmed" %}</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="p-3 bg-light rounded">
-                            <div class="stat-value text-danger">{{ stats.declined }}</div>
-                            <div class="stat-label text-muted">{% trans "Declined" %}</div>
-                        </div>
-                    </div>
-                    <div class="col-6">
-                        <div class="p-3 bg-light rounded">
-                            <div class="stat-value text-warning">{{ stats.pending }}</div>
-                            <div class="stat-label text-muted">{% trans "Pending" %}</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up stagger-2">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-download me-1"></i>{% trans "Export" %}</h5>
-                <div class="d-grid gap-2">
-                    <a href="{% url 'guests:export_csv' event.id %}" class="btn btn-outline-success">
-                        <i class="bi bi-filetype-csv me-1"></i>{% trans "Export CSV" %}
-                    </a>
-                    <a href="{% url 'guests:export_excel' event.id %}" class="btn btn-outline-primary">
-                        <i class="bi bi-file-earmark-excel me-1"></i>{% trans "Export Excel" %}
-                    </a>
-                </div>
-            </div>
-        </div>
-
-        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up stagger-3">
-            <div class="card-body">
-                <h5 class="card-title"><i class="bi bi-link-45deg me-1"></i>{% trans "Quick Links" %}</h5>
-                <a href="{% url 'guests:guest_list' event.id %}" class="btn btn-outline-info w-100 mb-2">
-                    <i class="bi bi-people me-1"></i>{% trans "Guest List" %}
-                </a>
+<!-- Modal suppression -->
+<div id="delete-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="glass-card p-6 max-w-md w-full mx-4">
+        <div class="text-center">
+            <h2 class="text-xl font-bold mb-2">Supprimer l'evenement</h2>
+            <p class="text-gray-300 mb-4">
+                Supprimer "{{ event.name }}" ? Cette action est irreversible.
+            </p>
+            <div class="flex gap-3">
+                <form method="post" action="{% url 'events:event_delete' event.slug %}" class="flex-1">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full bg-red-500/20 hover:bg-red-500/30 py-2 rounded-lg transition">
+                        Supprimer
+                    </button>
+                </form>
+                <button onclick="closeDeleteModal()" class="flex-1 bg-white/10 hover:bg-white/20 py-2 rounded-lg transition">
+                    Annuler
+                </button>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card shadow-sm border-0 animate-fade-in-up stagger-4">
-    <div class="card-body">
-        <h5 class="card-title">
-            <i class="bi bi-people me-1"></i>{% trans "Recent Guests" %}
-            <a href="{% url 'guests:guest_list' event.id %}" class="btn btn-sm btn-outline-primary float-end">
-                {% trans "View All" %}
-            </a>
-        </h5>
-        {% if guests %}
-        <div class="table-responsive">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>{% trans "Name" %}</th>
-                        <th>{% trans "Email" %}</th>
-                        <th>{% trans "Status" %}</th>
-                        <th>{% trans "Drink" %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for guest in guests|slice:":10" %}
-                    <tr class="guest-row">
-                        <td>{{ guest.first_name }} {{ guest.last_name }}</td>
-                        <td>{{ guest.email }}</td>
-                        <td>
-                            {% if guest.status == 'confirmed' %}
-                            <span class="badge bg-success">{% trans "Confirmed" %}</span>
-                            {% elif guest.status == 'declined' %}
-                            <span class="badge bg-danger">{% trans "Declined" %}</span>
-                            {% else %}
-                            <span class="badge bg-warning text-dark">{% trans "Pending" %}</span>
-                            {% endif %}
-                        </td>
-                        <td>{{ guest.drink_choice|default:"-" }}</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-        {% else %}
-        <p class="text-muted mb-0">{% trans "No guests have been added yet." %}</p>
-        {% endif %}
-    </div>
-</div>
+<script>
+    function copyLink(elementId) {
+        const input = document.getElementById(elementId);
+        input.select();
+        document.execCommand('copy');
+        alert('Lien copie');
+    }
+    
+    function shareWhatsApp(elementId) {
+        const input = document.getElementById(elementId);
+        const text = encodeURIComponent(`Invitation : ${input.value}`);
+        window.open(`https://wa.me/?text=${text}`, '_blank');
+    }
+    
+    function showDeleteModal() {
+        document.getElementById('delete-modal').classList.remove('hidden');
+        document.getElementById('delete-modal').classList.add('flex');
+    }
+    
+    function closeDeleteModal() {
+        document.getElementById('delete-modal').classList.add('hidden');
+        document.getElementById('delete-modal').classList.remove('flex');
+    }
+</script>
 {% endblock %}

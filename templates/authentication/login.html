@@ -1,45 +1,87 @@
 {% extends 'base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Login" %} - {% trans "Event Management" %}{% endblock %}
+{% block title %}Connexion - KbfEven{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center animate-fade-in-up">
-    <div class="col-md-6 col-lg-4">
-        <div class="card shadow-sm border-0">
-            <div class="card-body p-4">
-                <h3 class="card-title text-center mb-4">
-                    <i class="bi bi-box-arrow-in-right me-2"></i>{% trans "Login" %}
-                </h3>
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-                    </div>
-                    {% endif %}
-                    <div class="mb-3">
-                        <label for="{{ form.username.id_for_label }}" class="form-label">{{ form.username.label }}</label>
-                        {{ form.username }}
-                        {% if form.username.errors %}
-                        <div class="text-danger small">{{ form.username.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="mb-3">
-                        <label for="{{ form.password.id_for_label }}" class="form-label">{{ form.password.label }}</label>
-                        {{ form.password }}
-                        {% if form.password.errors %}
-                        <div class="text-danger small">{{ form.password.errors.0 }}</div>
-                        {% endif %}
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-box-arrow-in-right me-1"></i>{% trans "Login" %}
-                    </button>
-                </form>
-                <p class="text-center mt-3 mb-0">
-                    <small>{% trans "Don't have an account?" %} <a href="{% url 'authentication:register' %}">{% trans "Register" %}</a></small>
+<div class="min-h-[80vh] flex items-center justify-center py-12">
+    <div class="max-w-md w-full mx-4">
+        <!-- Carte principale -->
+        <div class="glass-card p-6 md:p-8">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 mx-auto rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
+                    <i class="fas fa-sign-in-alt text-2xl text-purple-400"></i>
+                </div>
+                <h1 class="text-2xl md:text-3xl font-bold">Connexion</h1>
+                <p class="text-gray-400 text-sm mt-2">
+                    Connectez-vous à votre compte KbfEven
                 </p>
             </div>
+            
+            <form method="post" class="space-y-5">
+                {% csrf_token %}
+                
+                <!-- Champ email / username -->
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">
+                        <i class="fas fa-envelope mr-2 text-purple-400"></i>Email
+                    </label>
+                    <input type="email" name="username" value="{{ form.username.value|default:'' }}"
+                           class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400"
+                           placeholder="votre@email.com" required>
+                    {% if form.username.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.username.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Champ mot de passe -->
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">
+                        <i class="fas fa-lock mr-2 text-cyan-400"></i>Mot de passe
+                    </label>
+                    <input type="password" name="password"
+                           class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400"
+                           placeholder="••••••••" required>
+                    {% if form.password.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.password.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Lien mot de passe oublié (optionnel) -->
+                <div class="text-right">
+                    <a href="#" class="text-sm text-gray-400 hover:text-purple-400 transition">
+                        Mot de passe oublié ?
+                    </a>
+                </div>
+                
+                <!-- Bouton connexion -->
+                <button type="submit" class="btn-gradient w-full py-3 rounded-xl font-semibold mt-4">
+                    <i class="fas fa-sign-in-alt mr-2"></i>Se connecter
+                </button>
+            </form>
+            
+            <!-- Séparateur -->
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center">
+                    <div class="w-full border-t border-gray-600"></div>
+                </div>
+                <div class="relative flex justify-center text-sm">
+                    <span class="px-3 bg-transparent text-gray-400">ou</span>
+                </div>
+            </div>
+            
+            <!-- Lien vers inscription -->
+            <p class="text-center text-sm text-gray-400">
+                Pas encore de compte ?
+                <a href="{% url 'authentication:register' %}" class="text-purple-400 hover:underline font-semibold">
+                    Créer un compte
+                </a>
+            </p>
+        </div>
+        
+        <!-- Message d'aide -->
+        <div class="text-center mt-6 text-xs text-gray-500">
+            <p>En vous connectant, vous accédez à votre espace d'organisation.</p>
         </div>
     </div>
 </div>

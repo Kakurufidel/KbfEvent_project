@@ -55,6 +55,14 @@
         }
         .overlay.active { display: block; }
         
+        /* Modal */
+        #logout-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(8px);
+            z-index: 100; display: none; align-items: center; justify-content: center;
+        }
+        #logout-modal.show { display: flex; }
+        
         html { scroll-behavior: smooth; }
         .scroll-mt-20 { scroll-margin-top: 80px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(15px);} to { opacity: 1; transform: translateY(0);} }
@@ -64,6 +72,28 @@
 </head>
 <body class="antialiased font-sans">
     <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
+    
+    <!-- Popup de confirmation de déconnexion -->
+    <div id="logout-modal">
+        <div class="glass-card p-6 md:p-8 text-center max-w-md mx-4">
+            <div class="w-20 h-20 mx-auto rounded-full bg-yellow-500/20 flex items-center justify-center mb-4">
+                <i class="fas fa-question text-3xl text-yellow-400"></i>
+            </div>
+            <h2 class="text-2xl font-bold mb-2">Déconnexion</h2>
+            <p class="text-gray-300 mb-6">Êtes-vous sûr de vouloir vous déconnecter ?</p>
+            <div class="flex flex-col sm:flex-row gap-3">
+                <form method="post" action="{% url 'authentication:logout' %}" class="flex-1">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full btn-gradient py-3 rounded-xl font-semibold">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Oui, me déconnecter
+                    </button>
+                </form>
+                <button id="cancel-logout" class="flex-1 bg-white/10 hover:bg-white/20 py-3 rounded-xl font-semibold transition">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </button>
+            </div>
+        </div>
+    </div>
     
     <!-- Sidebar mobile -->
     <div id="sidebar" class="shadow-2xl p-6 flex flex-col space-y-5">
@@ -91,12 +121,9 @@
             <a href="{% url 'authentication:dashboard' %}" class="py-2 hover:text-purple-400 transition">
                 <i class="fas fa-tachometer-alt mr-3 w-5"></i>Dashboard
             </a>
-            <a href="{% url 'events:event_create' %}" class="py-2 hover:text-purple-400 transition">
-                <i class="fas fa-plus-circle mr-3 w-5"></i>Événement
-            </a>
-            <a href="{% url 'authentication:logout' %}" class="py-2 hover:text-purple-400 transition">
+            <button id="logout-btn-sidebar" class="w-full text-left py-2 hover:text-purple-400 transition">
                 <i class="fas fa-sign-out-alt mr-3 w-5"></i>Déconnexion
-            </a>
+            </button>
         {% else %}
             <a href="{% url 'authentication:login' %}" class="py-2 hover:text-purple-400 transition">
                 <i class="fas fa-sign-in-alt mr-3 w-5"></i>Connexion
@@ -139,12 +166,30 @@
                     </button>
                     
                     {% if user.is_authenticated %}
-                        <a href="{% url 'authentication:dashboard' %}" class="hidden sm:inline-block text-sm hover:text-purple-400 transition">
-                            <i class="fas fa-user-circle mr-1"></i> {{ user.username|truncatechars:10 }}
-                        </a>
-                        <a href="{% url 'authentication:logout' %}" class="hidden sm:inline-block text-sm hover:text-purple-400 transition">
-                            <i class="fas fa-sign-out-alt"></i>
-                        </a>
+                        <!-- Avatar avec initiales -->
+                        <div class="relative group">
+                            <button id="user-menu-btn" class="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500 text-white font-semibold text-sm hover:scale-105 transition">
+                                {{ user.first_name|slice:":1"|upper }}{{ user.last_name|slice:":1"|upper }}
+                            </button>
+                            
+                            <!-- Menu déroulant utilisateur -->
+                            <div id="user-menu" class="absolute right-0 mt-2 w-48 hidden glass-card py-2 z-50">
+                                <div class="px-4 py-2 border-b border-gray-700">
+                                    <p class="text-sm font-semibold">{{ user.first_name }} {{ user.last_name }}</p>
+                                    <p class="text-xs text-gray-400">{{ user.email }}</p>
+                                </div>
+                                <a href="{% url 'authentication:dashboard' %}" class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-white/10 transition">
+                                    <i class="fas fa-tachometer-alt w-4"></i> Tableau de bord
+                                </a>
+                                <a href="#" class="flex items-center gap-2 px-4 py-2 text-sm hover:bg-white/10 transition">
+                                    <i class="fas fa-user w-4"></i> Mon profil
+                                </a>
+                                <div class="border-t border-gray-700 my-1"></div>
+                                <button id="logout-btn-desktop" class="flex items-center gap-2 px-4 py-2 text-sm w-full text-left hover:bg-white/10 transition text-red-400">
+                                    <i class="fas fa-sign-out-alt w-4"></i> Déconnexion
+                                </button>
+                            </div>
+                        </div>
                     {% else %}
                         <a href="{% url 'authentication:login' %}" class="hidden sm:inline-block text-sm hover:text-purple-400 transition">
                             Connexion
@@ -222,6 +267,48 @@
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') closeSidebar();
         });
+        
+        // Popup de déconnexion
+        const modal = document.getElementById('logout-modal');
+        const logoutBtns = document.querySelectorAll('#logout-btn-sidebar, #logout-btn-desktop');
+        const cancelBtn = document.getElementById('cancel-logout');
+        
+        function openModal() {
+            modal.classList.add('show');
+        }
+        
+        function closeModal() {
+            modal.classList.remove('show');
+        }
+        
+        logoutBtns.forEach(btn => {
+            if (btn) btn.addEventListener('click', openModal);
+        });
+        
+        if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+        
+        // Fermer en cliquant à l'extérieur
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) closeModal();
+        });
+        
+        // Menu utilisateur déroulant
+        const userMenuBtn = document.getElementById('user-menu-btn');
+        const userMenu = document.getElementById('user-menu');
+        
+        if (userMenuBtn && userMenu) {
+            userMenuBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                userMenu.classList.toggle('hidden');
+            });
+            
+            // Fermer le menu en cliquant ailleurs
+            document.addEventListener('click', function(e) {
+                if (!userMenuBtn.contains(e.target) && !userMenu.contains(e.target)) {
+                    userMenu.classList.add('hidden');
+                }
+            });
+        }
     </script>
     {% block extra_js %}{% endblock %}
 </body>

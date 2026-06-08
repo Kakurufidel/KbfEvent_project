@@ -11,7 +11,7 @@ class EventForm(forms.ModelForm):
         required=False,
         widget=forms.TextInput(attrs={
             'placeholder': 'Vin, Bière, Soft, Jus...',
-            'class': 'w-full px-3 py-2 border rounded-lg'
+            'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400'
         }),
         help_text='Séparez les boissons par des virgules'
     )
@@ -24,29 +24,40 @@ class EventForm(forms.ModelForm):
             'dress_code', 'reminder_message', 'sender_email'
         ]
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'Nom de l\'événement'}),
-            'event_type': forms.Select(attrs={'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'event_type_other': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'Précisez le type'}),
-            'description': forms.Textarea(attrs={'rows': 4, 'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'Description de l\'événement'}),
-            'date': forms.DateInput(attrs={'type': 'date', 'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'time': forms.TimeInput(attrs={'type': 'time', 'class': 'w-full px-3 py-2 border rounded-lg'}),
-            'location': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'Adresse du lieu'}),
-            'google_maps_link': forms.URLInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'https://maps.google.com/...'}),
-            'dress_code': forms.TextInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'Code vestimentaire'}),
-            'reminder_message': forms.Textarea(attrs={'rows': 3, 'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'Message de rappel pour les invités'}),
-            'sender_email': forms.EmailInput(attrs={'class': 'w-full px-3 py-2 border rounded-lg', 'placeholder': 'noreply@example.com'}),
+            'name': forms.TextInput(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'Nom de l\'événement'}),
+            'event_type': forms.Select(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400'}),
+            'event_type_other': forms.TextInput(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'Précisez le type'}),
+            'description': forms.Textarea(attrs={'rows': 3, 'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'Description de l\'événement'}),
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400'}),
+            'time': forms.TimeInput(attrs={'type': 'time', 'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400'}),
+            'location': forms.TextInput(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'Adresse du lieu'}),
+            'google_maps_link': forms.URLInput(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'https://maps.google.com/...'}),
+            'dress_code': forms.TextInput(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'Code vestimentaire (optionnel)'}),
+            'reminder_message': forms.Textarea(attrs={'rows': 2, 'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'Message de rappel pour les invités (optionnel)'}),
+            'sender_email': forms.EmailInput(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400', 'placeholder': 'noreply@example.com'}),
         }
     
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        
         # Remplir le champ texte des boissons si l'instance existe
         if self.instance and self.instance.pk and self.instance.drink_options:
             self.initial['drink_options_text'] = ', '.join(self.instance.drink_options)
+        
+        # Pré-remplir l'email expéditeur avec l'email de l'utilisateur connecté
+        if user and not self.instance.pk:
+            self.initial['sender_email'] = user.email
+        
         # Rendre certains champs optionnels
         self.fields['event_type_other'].required = False
         self.fields['google_maps_link'].required = False
         self.fields['dress_code'].required = False
         self.fields['reminder_message'].required = False
+        self.fields['description'].required = False
+        
+        # Personnaliser les labels
+        self.fields['sender_email'].help_text = "Email utilisé pour envoyer les rappels. Par défaut, votre email personnel."
     
     def clean(self):
         cleaned_data = super().clean()
@@ -59,7 +70,7 @@ class EventForm(forms.ModelForm):
         return cleaned_data
     
     def save(self, commit=True):
-        """Sauvegarde en convertissant le texte des boissons en JSON"""
+        """Sauvegarde en convertissant le texte des boissons en liste"""
         instance = super().save(commit=False)
         
         # Convertir le texte des boissons en liste

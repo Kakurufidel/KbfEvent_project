@@ -1,0 +1,271 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Tableau de bord - KbfEven{% endblock %}
+
+{% block content %}
+
+<div class="max-w-7xl mx-auto">
+    <!-- En-tete -->
+    <div class="mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold">
+            Tableau de bord
+        </h1>
+        <p class="text-gray-400 mt-1">
+            Bonjour {{ user.first_name|default:user.username }}.
+        </p>
+    </div>
+    
+    <!-- Cartes statistiques -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div class="glass-card p-4 md:p-5 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-purple-400">{{ total_events }}</div>
+            <div class="text-xs md:text-sm text-gray-400 mt-1">Evenements</div>
+        </div>
+        <div class="glass-card p-4 md:p-5 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-cyan-400">{{ total_guests }}</div>
+            <div class="text-xs md:text-sm text-gray-400 mt-1">Invites</div>
+        </div>
+        <div class="glass-card p-4 md:p-5 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-purple-400">{{ total_responses }}</div>
+            <div class="text-xs md:text-sm text-gray-400 mt-1">Reponses</div>
+        </div>
+        <div class="glass-card p-4 md:p-5 text-center">
+            <div class="text-2xl md:text-3xl font-bold text-cyan-400">{{ attendance_rate }}%</div>
+            <div class="text-xs md:text-sm text-gray-400 mt-1">Presence</div>
+        </div>
+    </div>
+    <div class="grid lg:grid-cols-3 gap-6">
+        <!-- Colonne gauche -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- Actions rapides -->
+            <div class="glass-card p-5">
+                <h2 class="text-lg font-semibold mb-4">Actions rapides</h2>
+                <div class="grid sm:grid-cols-2 gap-3">
+                    <a href="/events/create/" class="flex items-center gap-3 p-3 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 transition">
+                        Creer un evenement
+                    </a>
+                    <button onclick="showInviteModal()" class="text-left p-3 rounded-xl bg-white/5 hover:bg-white/10 transition">
+                        Inviter un co-organisateur
+                    </button>
+                    <a href="#" class="p-3 rounded-xl bg-white/5 hover:bg-white/10 transition">
+                        Exporter les donnees
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Mes evenements -->
+            <div class="glass-card p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Mes evenements</h2>
+                    <a href="/events/" class="text-xs text-purple-400 hover:underline">Voir tout</a>
+                </div>
+                
+                {% if events %}
+                    <div class="space-y-3">
+                        {% for event in events|slice:":5" %}
+                            <div class="flex justify-between items-center p-3 rounded-xl bg-white/5 hover:bg-white/10 transition">
+                                <div>
+                                    <p class="font-semibold text-sm">{{ event.name }}</p>
+                                    <p class="text-xs text-gray-400">{{ event.date|date:"d/m/Y" }} | {{ event.total_responses }} reponses</p>
+                                </div>
+                                <a href="/events/{{ event.slug }}/" class="text-purple-400 text-sm hover:underline">
+                                    Gerer
+                                </a>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-8 text-gray-400">
+                        <p>Aucun evenement pour le moment.</p>
+                        <a href="/events/create/" class="text-purple-400 hover:underline mt-2 inline-block">
+                            Creer votre premier evenement
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Colonne droite -->
+        <div class="space-y-6">
+            
+            <!-- Co-organisateurs -->
+            <div class="glass-card p-5">
+                <h2 class="text-lg font-semibold mb-4">Co-organisateurs</h2>
+                
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-2 rounded-lg bg-purple-500/10">
+                        <div>
+                            <p class="text-sm font-semibold">{{ user.first_name }} {{ user.last_name }}</p>
+                            <p class="text-xs text-gray-400">Organisateur principal</p>
+                        </div>
+                    </div>
+                    
+                    {% if collaborators %}
+                        {% for collab in collaborators %}
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-white/5">
+                                <div>
+                                    <p class="text-sm font-semibold">{{ collab.user.first_name }} {{ collab.user.last_name }}</p>
+                                    <p class="text-xs text-gray-400">{{ collab.user.email }}</p>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-center text-gray-400 text-sm py-4">
+                            Aucun co-organisateur.
+                        </p>
+                    {% endif %}
+                </div>
+                
+                <button onclick="showInviteModal()" class="w-full mt-4 py-2 rounded-lg border border-dashed border-purple-500 text-purple-400 text-sm hover:bg-purple-500/10 transition">
+                    Inviter un co-organisateur
+                </button>
+            </div>
+            
+            <!-- Invitations invites -->
+            <div class="glass-card p-5">
+                <h2 class="text-lg font-semibold mb-3">Inviter des invites</h2>
+                <p class="text-xs text-gray-400 mb-3">
+                    Partagez ce lien avec vos invites.
+                </p>
+                
+                {% if events %}
+                    <div class="space-y-3">
+                        <select id="event-select" class="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-sm">
+                            <option value="">Selectionnez un evenement</option>
+                            {% for event in events %}
+                                <option value="{{ event.get_rsvp_url }}" data-url="{{ event.get_rsvp_url }}">
+                                    {{ event.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                        
+                        <div class="flex gap-2">
+                            <input type="text" id="invite-link" readonly class="flex-1 p-2 rounded-lg bg-white/5 border border-white/20 text-sm">
+                            <button onclick="copyInviteLink()" class="px-4 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 transition">
+                                Copier
+                            </button>
+                        </div>
+                        
+                        <button onclick="shareWhatsApp()" class="w-full py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 transition text-sm">
+                            Partager sur WhatsApp
+                        </button>
+                    </div>
+                {% else %}
+                    <p class="text-center text-gray-400 text-sm py-4">
+                        Creez un evenement d'abord.
+                    </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal invitation co-organisateur -->
+<div id="invite-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/70 backdrop-blur-sm">
+    <div class="glass-card p-6 max-w-md w-full mx-4">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold">Inviter un co-organisateur</h2>
+            <button onclick="closeInviteModal()" class="text-gray-400 hover:text-white">
+                Fermer
+            </button>
+        </div>
+        <p class="text-sm text-gray-300 mb-4">
+            Selectionnez l'evenement et copiez le lien.
+        </p>
+        
+        <div class="space-y-4">
+            <select id="coorganizer-event-select" class="w-full p-3 rounded-xl bg-white/10 border border-white/20">
+                <option value="">Selectionnez un evenement</option>
+                {% for event in events %}
+                    <option value="{{ event.get_coorganizer_url }}" data-url="{{ event.get_coorganizer_url }}">
+                        {{ event.name }}
+                    </option>
+                {% endfor %}
+            </select>
+            
+            <div class="flex gap-2">
+                <input type="text" id="coorganizer-link" readonly class="flex-1 p-3 rounded-xl bg-white/5 border border-white/20 text-sm">
+                <button onclick="copyCoorgLink()" class="px-4 py-2 rounded-xl bg-purple-500/20 hover:bg-purple-500/30 transition">
+                    Copier
+                </button>
+            </div>
+            
+            <button onclick="shareCoorgWhatsApp()" class="w-full py-3 rounded-xl bg-green-500/20 hover:bg-green-500/30 transition">
+                Partager sur WhatsApp
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const eventSelect = document.getElementById('event-select');
+    const inviteLink = document.getElementById('invite-link');
+    
+    if (eventSelect) {
+        eventSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const url = selectedOption.getAttribute('data-url');
+            if (url) {
+                inviteLink.value = window.location.origin + url;
+            } else {
+                inviteLink.value = '';
+            }
+        });
+    }
+    
+    function copyInviteLink() {
+        if (inviteLink.value) {
+            navigator.clipboard.writeText(inviteLink.value);
+            alert('Lien copie');
+        }
+    }
+    
+    function shareWhatsApp() {
+        if (inviteLink.value) {
+            const text = encodeURIComponent(`Invitation : ${inviteLink.value}`);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+    }
+    
+    const coorgEventSelect = document.getElementById('coorganizer-event-select');
+    const coorgLink = document.getElementById('coorganizer-link');
+    
+    function showInviteModal() {
+        document.getElementById('invite-modal').classList.remove('hidden');
+        document.getElementById('invite-modal').classList.add('flex');
+    }
+    
+    function closeInviteModal() {
+        document.getElementById('invite-modal').classList.add('hidden');
+        document.getElementById('invite-modal').classList.remove('flex');
+    }
+    
+    if (coorgEventSelect) {
+        coorgEventSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            const url = selectedOption.getAttribute('data-url');
+            if (url) {
+                coorgLink.value = window.location.origin + url;
+            } else {
+                coorgLink.value = '';
+            }
+        });
+    }
+    
+    function copyCoorgLink() {
+        if (coorgLink.value) {
+            navigator.clipboard.writeText(coorgLink.value);
+            alert('Lien copie');
+        }
+    }
+    
+    function shareCoorgWhatsApp() {
+        if (coorgLink.value) {
+            const text = encodeURIComponent(`Rejoignez comme co-organisateur : ${coorgLink.value}`);
+            window.open(`https://wa.me/?text=${text}`, '_blank');
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}Déconnexion - KbfEven{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center py-12">
+    <div class="max-w-md w-full mx-4">
+        <!-- Popup de confirmation -->
+        <div class="glass-card p-6 md:p-8 text-center">
+            <!-- Icône de question -->
+            <div class="w-20 h-20 mx-auto rounded-full bg-yellow-500/20 flex items-center justify-center mb-4">
+                <i class="fas fa-question text-3xl text-yellow-400"></i>
+            </div>
+            
+            <h1 class="text-2xl font-bold mb-2">Déconnexion</h1>
+            <p class="text-gray-300 mb-6">
+                Êtes-vous sûr de vouloir vous déconnecter de votre compte ?
+            </p>
+            
+            <!-- Boutons d'action -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <!-- Bouton Confirmer (déconnexion) -->
+                <form method="post" class="flex-1">
+                    {% csrf_token %}
+                    <button type="submit" class="w-full btn-gradient py-3 rounded-xl font-semibold">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Oui, me déconnecter
+                    </button>
+                </form>
+                
+                <!-- Bouton Annuler (rester connecté) -->
+                <a href="{% url 'authentication:dashboard' %}" 
+                   class="flex-1 text-center bg-white/10 hover:bg-white/20 py-3 rounded-xl font-semibold transition">
+                    <i class="fas fa-times mr-2"></i>Annuler
+                </a>
+            </div>
+        </div>
+        
+        <!-- Message d'information -->
+        <div class="text-center mt-6 text-xs text-gray-500">
+            <p>Vous serez redirigé vers la page d'accueil après déconnexion.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

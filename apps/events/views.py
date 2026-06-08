@@ -4,9 +4,12 @@ from django.contrib.auth import login
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext as _
-from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
+from django.views.generic import CreateView, DetailView, ListView, UpdateView, View, FormView
+from django.shortcuts import render
+from django.views.generic import TemplateView
+
 
 from .forms import EventForm
 from .models import Event, EventCollaborator
@@ -36,18 +39,30 @@ class EventCreateView(LoginRequiredMixin, CreateView):
     model = Event
     form_class = EventForm
     template_name = 'events/event_form.html'
+    success_url = reverse_lazy('authentication:dashboard')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = _('Créer un événement')
         return context
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
     def form_valid(self, form):
         event = form.save(commit=False)
         event.main_organizer = self.request.user
         event.save()
         messages.success(self.request, _('Événement créé avec succès !'))
-        return redirect('events:event_list')
+        return redirect(self.success_url)
+
+    def form_invalid(self, form):
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(self.request, f"{error}")
+        return super().form_invalid(form)
 
 
 class EventUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
@@ -56,10 +71,16 @@ class EventUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     form_class = EventForm
     template_name = 'events/event_form.html'
     slug_url_kwarg = 'slug'
+    success_url = reverse_lazy('authentication:dashboard')
     
     def test_func(self):
         event = self.get_object()
         return user_can_manage_event(self.request.user, event)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -69,7 +90,7 @@ class EventUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def form_valid(self, form):
         form.save()
         messages.success(self.request, _('Événement modifié avec succès !'))
-        return redirect('events:event_list')
+        return redirect(self.success_url)
 
 
 class EventDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
@@ -112,18 +133,54 @@ class EventDeleteView(LoginRequiredMixin, View):
         event.delete()
         messages.success(request, _('L\'événement "%(name)s" a été supprimé.') % {'name': name})
         return redirect('events:event_list')
-    
 
-class JoinCoOrganizerView(View):
-    """Vue pour rejoindre comme co-organisateur"""
+
+class JoinCoOrganizerView(FormView):
+    """Vue pour rejoindre comme co-organisateur (basée sur classe)"""
+    template_name = 'events/join_coorganizer.html'
     
-    def get(self, request, slug, token):
-        event = get_object_or_404(Event, slug=slug, coorganizer_token=token)
+    def dispatch(self, request, *args, **kwargs):
+        self.event = get_object_or_404(Event, slug=kwargs.get('slug'), coorganizer_token=kwargs.get('token'))
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_form_class(self):
+        from apps.authentication.forms import RegisterForm
+        return RegisterForm
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['event'] = self.event
+        return context
+    
+    def form_valid(self, form):
+        # Créer l'utilisateur
+        user = form.save()
         
+        # Connecter l'utilisateur
+        login(self.request, user)
+        
+        # Ajouter comme co-organisateur
+        EventCollaborator.objects.create(
+            event=self.event,
+            user=user,
+            status='accepted',
+            accepted_at=timezone.now()
+        )
+        
+        messages.success(self.request, f'Bienvenue ! Vous êtes co-organisateur de "{self.event.name}"')
+        return redirect('events:event_detail', slug=self.event.slug)
+    
+    def form_invalid(self, form):
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(self.request, f"{field}: {error}")
+        return super().form_invalid(form)
+    
+    def get(self, request, *args, **kwargs):
+        # Si déjà connecté, l'ajouter directement comme co-organisateur
         if request.user.is_authenticated:
-            # Déjà connecté
             collaborator, created = EventCollaborator.objects.get_or_create(
-                event=event,
+                event=self.event,
                 user=request.user,
                 defaults={'status': 'accepted', 'accepted_at': timezone.now()}
             )
@@ -132,37 +189,50 @@ class JoinCoOrganizerView(View):
                 collaborator.accepted_at = timezone.now()
                 collaborator.save()
             
-            messages.success(request, f'Vous êtes maintenant co-organisateur de "{event.name}"')
-            return redirect('events:event_detail', slug=event.slug)
+            messages.success(request, f'Vous êtes maintenant co-organisateur de "{self.event.name}"')
+            return redirect('events:event_detail', slug=self.event.slug)
         
-        # Formulaire d'inscription
-        from apps.authentication.forms import RegisterForm
-        form = RegisterForm()
-        return render(request, 'events/join_coorganizer.html', {
-            'form': form,
-            'event': event,
-        })
+        return super().get(request, *args, **kwargs)
+
+class RSVPFormView(FormView):
+    """Formulaire public pour les invités"""
+    template_name = 'events/rsvp_form.html'
+    form_class = RSVPForm
+    success_url = reverse_lazy('events:rsvp_thanks')
     
-    def post(self, request, slug, token):
-        event = get_object_or_404(Event, slug=slug, coorganizer_token=token)
-        from apps.authentication.forms import RegisterForm
+    def dispatch(self, request, *args, **kwargs):
+        self.event = get_object_or_404(
+            Event, 
+            slug=kwargs.get('slug'), 
+            rsvp_token=kwargs.get('token'),
+            is_active=True
+        )
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['event'] = self.event
+        return kwargs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['event'] = self.event
+        return context
+    
+    def form_valid(self, form):
+        response = form.save(commit=False)
+        response.event = self.event
+        response.ip_address = self.request.META.get('REMOTE_ADDR')
+        response.save()
         
-        form = RegisterForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            
-            EventCollaborator.objects.create(
-                event=event,
-                user=user,
-                status='accepted',
-                accepted_at=timezone.now()
-            )
-            
-            messages.success(request, f'Bienvenue ! Vous êtes co-organisateur de "{event.name}"')
-            return redirect('events:event_detail', slug=event.slug)
+        # Vérification si l'invité est dans la liste
+        response.verify_against_invited_list()
         
-        return render(request, 'events/join_coorganizer.html', {
-            'form': form,
-            'event': event,
-        })
+        # Envoi de l'email de confirmation
+        try:
+            response.send_confirmation_email()
+        except Exception as e:
+            print(f"Erreur envoi email: {e}")
+        
+        messages.success(self.request, _('Merci ! Votre réponse a bien été enregistrée.'))
+        return super().form_valid(form)

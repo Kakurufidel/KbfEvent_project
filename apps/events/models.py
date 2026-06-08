@@ -103,18 +103,12 @@ class Event(models.Model):
     
     def get_rsvp_url(self):
         """URL pour le formulaire RSVP des invités"""
-        return reverse('public:rsvp_form', kwargs={
-            'slug': self.slug,
-            'token': self.rsvp_token
-        })
-    
+        # Construction directe sans reverse
+        return f'/events/{self.slug}/rsvp/{self.rsvp_token}/'
+
     def get_coorganizer_url(self):
         """URL pour inviter des co-organisateurs"""
-        return reverse('public:join_coorganizer', kwargs={
-            'slug': self.slug,
-            'token': self.coorganizer_token
-        })
-    
+        return f'/events/{self.slug}/join/{self.coorganizer_token}/'
     def get_google_calendar_link(self):
         """Génère le lien Google Calendar"""
         if not self.date:

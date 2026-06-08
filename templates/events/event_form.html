@@ -1,149 +1,311 @@
 {% extends 'base.html' %}
-{% load i18n %}
 
-{% block title %}{{ title }} - {% trans "Event Management" %}{% endblock %}
+{% block title %}{% if form.instance.pk %}Modifier{% else %}Creer{% endif %} un evenement - KbfEven{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dark input, 
+    .dark textarea, 
+    .dark select {
+        color: #ffffff !important;
+        background-color: rgba(255, 255, 255, 0.08) !important;
+    }
+    
+    .dark input::placeholder,
+    .dark textarea::placeholder,
+    .dark select::placeholder {
+        color: #9ca3af !important;
+    }
+    
+    .dark input:focus,
+    .dark textarea:focus,
+    .dark select:focus {
+        background-color: rgba(255, 255, 255, 0.12) !important;
+        border-color: #8B5CF6 !important;
+        outline: none;
+    }
+    
+    textarea {
+        min-height: 80px;
+        resize: vertical;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center animate-fade-in-up">
-    <div class="col-12 col-lg-10">
-        <div class="card shadow-sm border-0">
-            <div class="card-body p-4">
-                <h3 class="card-title mb-4">
-                    <i class="bi bi-{% if event %}pencil-square{% else %}plus-circle{% endif %} me-2"></i>{{ title }}
-                </h3>
-                <form method="post" enctype="multipart/form-data" novalidate>
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-                    </div>
-                    {% endif %}
-
-                    <h5 class="mb-3">{% trans "Organizer Information" %}</h5>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.organizer_first_name.id_for_label }}" class="form-label">{{ form.organizer_first_name.label }}</label>
-                            {{ form.organizer_first_name }}
-                            {% if form.organizer_first_name.errors %}<div class="text-danger small">{{ form.organizer_first_name.errors.0 }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.organizer_last_name.id_for_label }}" class="form-label">{{ form.organizer_last_name.label }}</label>
-                            {{ form.organizer_last_name }}
-                            {% if form.organizer_last_name.errors %}<div class="text-danger small">{{ form.organizer_last_name.errors.0 }}</div>{% endif %}
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.organizer_email.id_for_label }}" class="form-label">{{ form.organizer_email.label }}</label>
-                            {{ form.organizer_email }}
-                            {% if form.organizer_email.errors %}<div class="text-danger small">{{ form.organizer_email.errors.0 }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.organizer_phone.id_for_label }}" class="form-label">{{ form.organizer_phone.label }}</label>
-                            {{ form.organizer_phone }}
-                            {% if form.organizer_phone.errors %}<div class="text-danger small">{{ form.organizer_phone.errors.0 }}</div>{% endif %}
-                        </div>
-                    </div>
-
-                    <h5 class="mb-3 mt-4">{% trans "Event Details" %}</h5>
-                    <div class="row">
-                        <div class="col-md-8 mb-3">
-                            <label for="{{ form.title.id_for_label }}" class="form-label">{{ form.title.label }}</label>
-                            {{ form.title }}
-                            {% if form.title.errors %}<div class="text-danger small">{{ form.title.errors.0 }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label for="{{ form.event_type.id_for_label }}" class="form-label">{{ form.event_type.label }}</label>
-                            {{ form.event_type }}
-                            {% if form.event_type.errors %}<div class="text-danger small">{{ form.event_type.errors.0 }}</div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div class="row" id="other-type-row" style="display: none;">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.event_type_other.id_for_label }}" class="form-label">{{ form.event_type_other.label }}</label>
-                            {{ form.event_type_other }}
-                            {% if form.event_type_other.errors %}<div class="text-danger small">{{ form.event_type_other.errors.0 }}</div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.location_name.id_for_label }}" class="form-label">{{ form.location_name.label }}</label>
-                            {{ form.location_name }}
-                            {% if form.location_name.errors %}<div class="text-danger small">{{ form.location_name.errors.0 }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.location_gmap_link.id_for_label }}" class="form-label">{{ form.location_gmap_link.label }}</label>
-                            {{ form.location_gmap_link }}
-                            {% if form.location_gmap_link.errors %}<div class="text-danger small">{{ form.location_gmap_link.errors.0 }}</div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="{{ form.location_address.id_for_label }}" class="form-label">{{ form.location_address.label }}</label>
-                        {{ form.location_address }}
-                        {% if form.location_address.errors %}<div class="text-danger small">{{ form.location_address.errors.0 }}</div>{% endif %}
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.event_date.id_for_label }}" class="form-label">{{ form.event_date.label }}</label>
-                            {{ form.event_date }}
-                            {% if form.event_date.errors %}<div class="text-danger small">{{ form.event_date.errors.0 }}</div>{% endif %}
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.event_photo.id_for_label }}" class="form-label">{{ form.event_photo.label }}</label>
-                            {{ form.event_photo }}
-                            {% if form.event_photo.errors %}<div class="text-danger small">{{ form.event_photo.errors.0 }}</div>{% endif %}
-                            {% if event and event.event_photo %}
-                            <div class="mt-2">
-                                <img src="{{ event.event_photo.url }}" class="img-fluid rounded" style="max-height: 100px;">
-                            </div>
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.available_drinks.id_for_label }}" class="form-label">{{ form.available_drinks.label }}</label>
-                            {{ form.available_drinks }}
-                            {% if form.available_drinks.errors %}<div class="text-danger small">{{ form.available_drinks.errors.0 }}</div>{% endif %}
-                            <div class="form-text">{% trans "Separate drinks with commas (e.g. Coke, Fanta, Juice, Water)" %}</div>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label for="{{ form.dress_code.id_for_label }}" class="form-label">{{ form.dress_code.label }}</label>
-                            {{ form.dress_code }}
-                            {% if form.dress_code.errors %}<div class="text-danger small">{{ form.dress_code.errors.0 }}</div>{% endif %}
-                        </div>
-                    </div>
-
-                    <div class="mb-3">
-                        <label for="{{ form.description.id_for_label }}" class="form-label">{{ form.description.label }}</label>
-                        {{ form.description }}
-                        {% if form.description.errors %}<div class="text-danger small">{{ form.description.errors.0 }}</div>{% endif %}
-                    </div>
-
-                    <div class="mb-4">
-                        <div class="form-check">
-                            {{ form.is_published }}
-                            <label class="form-check-label" for="{{ form.is_published.id_for_label }}">
-                                {{ form.is_published.label }}
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-check-lg me-1"></i>{% trans "Save" %}
-                        </button>
-                        <a href="{% if event %}{% url 'events:event_detail' event.id %}{% else %}{% url 'events:event_list' %}{% endif %}" class="btn btn-secondary">
-                            {% trans "Cancel" %}
-                        </a>
-                    </div>
-                </form>
-            </div>
+<div class="max-w-3xl mx-auto">
+    <div class="text-center mb-8">
+        <h1 class="text-2xl md:text-3xl font-bold">
+            {% if form.instance.pk %}Modifier l'evenement{% else %}Creer un evenement{% endif %}
+        </h1>
+        <p class="text-gray-400 text-sm mt-1">
+            {% if form.instance.pk %}Modifiez les informations ci-dessous{% else %}Remplissez les informations ci-dessous{% endif %}
+        </p>
+    </div>
+    
+    <!-- Progression -->
+    <div class="mb-8">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-gray-400">Etape <span id="current-step-display">1</span>/3</span>
+            <span class="text-xs text-gray-400" id="step-name-display">Informations generales</span>
+        </div>
+        <div class="w-full bg-gray-700 rounded-full h-2">
+            <div id="progress-bar" class="bg-gradient-to-r from-purple-500 to-cyan-500 h-2 rounded-full transition-all duration-300" style="width: 33.33%"></div>
         </div>
     </div>
+    
+    <div class="glass-card p-6 md:p-8">
+        <form method="post" id="multi-step-form">
+            {% csrf_token %}
+            
+            <!-- ETAPE 1 -->
+            <div id="step-1" class="step space-y-5">
+                <h2 class="text-lg font-semibold">Informations generales</h2>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Nom de l'evenement *</label>
+                    {{ form.name }}
+                    {% if form.name.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Type d'evenement *</label>
+                    <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                        {% for value, label in form.event_type.field.choices %}
+                            <label class="flex items-center gap-2 p-2 rounded-lg bg-white/5 hover:bg-white/10 cursor-pointer transition">
+                                <input type="radio" name="event_type" value="{{ value }}" 
+                                       {% if form.event_type.value == value %}checked{% endif %}
+                                       class="w-4 h-4 text-purple-500">
+                                <span class="text-sm">{{ label }}</span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    {% if form.event_type.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.event_type.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div id="other-type-field" class="hidden">
+                    <label class="block mb-2 text-sm font-semibold">Precisez le type *</label>
+                    {{ form.event_type_other }}
+                </div>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Description</label>
+                    {{ form.description }}
+                </div>
+            </div>
+            
+            <!-- ETAPE 2 -->
+            <div id="step-2" class="step space-y-5 hidden">
+                <h2 class="text-lg font-semibold">Date et lieu</h2>
+                
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block mb-2 text-sm font-semibold">Date *</label>
+                        {{ form.date }}
+                    </div>
+                    <div>
+                        <label class="block mb-2 text-sm font-semibold">Heure</label>
+                        {{ form.time }}
+                    </div>
+                </div>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Adresse / Lieu *</label>
+                    {{ form.location }}
+                    {% if form.location.errors %}
+                        <p class="text-red-400 text-xs mt-1">{{ form.location.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Lien Google Maps</label>
+                    {{ form.google_maps_link }}
+                </div>
+            </div>
+            
+            <!-- ETAPE 3 -->
+            <div id="step-3" class="step space-y-5 hidden">
+                <h2 class="text-lg font-semibold">Options</h2>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Code vestimentaire</label>
+                    {{ form.dress_code }}
+                </div>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Options de boissons</label>
+                    {{ form.drink_options_text }}
+                    <p class="text-gray-500 text-xs mt-1">Separez par des virgules. Ex: Vin rouge, Vin blanc, Jus</p>
+                </div>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Message de rappel</label>
+                    {{ form.reminder_message }}
+                </div>
+                
+                <div>
+                    <label class="block mb-2 text-sm font-semibold">Email expediteur</label>
+                    {{ form.sender_email }}
+                </div>
+            </div>
+            
+            <!-- Boutons -->
+            <div class="flex justify-between gap-3 pt-6 border-t border-gray-700 mt-6">
+                <button type="button" id="prev-btn" class="px-6 py-2 rounded-xl bg-white/10 hover:bg-white/20 transition font-semibold hidden">
+                    Precedent
+                </button>
+                
+                <button type="button" id="next-btn" class="btn-gradient flex-1 py-3 rounded-xl font-semibold">
+                    Suivant
+                </button>
+                
+                <button type="submit" id="submit-btn" class="btn-gradient flex-1 py-3 rounded-xl font-semibold hidden">
+                    {% if form.instance.pk %}Enregistrer{% else %}Creer{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
 </div>
+
+<script>
+    // Gestion du champ "Autre type"
+    const eventTypeRadios = document.querySelectorAll('input[name="event_type"]');
+    const otherTypeField = document.getElementById('other-type-field');
+    const otherTypeInput = document.querySelector('input[name="event_type_other"]');
+    
+    function toggleOtherTypeField() {
+        let selectedValue = null;
+        eventTypeRadios.forEach(radio => {
+            if (radio.checked) selectedValue = radio.value;
+        });
+        
+        if (selectedValue === 'other') {
+            otherTypeField.classList.remove('hidden');
+            if (otherTypeInput) otherTypeInput.required = true;
+        } else {
+            otherTypeField.classList.add('hidden');
+            if (otherTypeInput) otherTypeInput.required = false;
+        }
+    }
+    
+    eventTypeRadios.forEach(radio => {
+        radio.addEventListener('change', toggleOtherTypeField);
+    });
+    toggleOtherTypeField();
+    
+    // Multi-step form
+    let currentStep = 1;
+    const totalSteps = 3;
+    
+    const step1 = document.getElementById('step-1');
+    const step2 = document.getElementById('step-2');
+    const step3 = document.getElementById('step-3');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const submitBtn = document.getElementById('submit-btn');
+    const progressBar = document.getElementById('progress-bar');
+    const currentStepDisplay = document.getElementById('current-step-display');
+    const stepNameDisplay = document.getElementById('step-name-display');
+    
+    const stepNames = {
+        1: 'Informations generales',
+        2: 'Date et lieu',
+        3: 'Options'
+    };
+    
+    function updateUI() {
+        step1.classList.add('hidden');
+        step2.classList.add('hidden');
+        step3.classList.add('hidden');
+        
+        if (currentStep === 1) step1.classList.remove('hidden');
+        if (currentStep === 2) step2.classList.remove('hidden');
+        if (currentStep === 3) step3.classList.remove('hidden');
+        
+        const progress = (currentStep / totalSteps) * 100;
+        progressBar.style.width = `${progress}%`;
+        
+        currentStepDisplay.textContent = currentStep;
+        stepNameDisplay.textContent = stepNames[currentStep];
+        
+        if (currentStep === 1) {
+            prevBtn.classList.add('hidden');
+            nextBtn.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+        } else if (currentStep === totalSteps) {
+            prevBtn.classList.remove('hidden');
+            nextBtn.classList.add('hidden');
+            submitBtn.classList.remove('hidden');
+        } else {
+            prevBtn.classList.remove('hidden');
+            nextBtn.classList.remove('hidden');
+            submitBtn.classList.add('hidden');
+        }
+    }
+    
+    function validateStep(step) {
+        if (step === 1) {
+            const name = document.querySelector('input[name="name"]').value.trim();
+            const eventType = document.querySelector('input[name="event_type"]:checked');
+            
+            if (!name) {
+                alert('Veuillez saisir le nom de l\'evenement');
+                return false;
+            }
+            if (!eventType) {
+                alert('Veuillez selectionner le type d\'evenement');
+                return false;
+            }
+            if (eventType.value === 'other') {
+                const otherType = document.querySelector('input[name="event_type_other"]').value.trim();
+                if (!otherType) {
+                    alert('Veuillez preciser le type d\'evenement');
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        if (step === 2) {
+            const date = document.querySelector('input[name="date"]').value;
+            const location = document.querySelector('input[name="location"]').value.trim();
+            
+            if (!date) {
+                alert('Veuillez selectionner la date');
+                return false;
+            }
+            if (!location) {
+                alert('Veuillez saisir l\'adresse');
+                return false;
+            }
+            return true;
+        }
+        
+        return true;
+    }
+    
+    nextBtn.addEventListener('click', function() {
+        if (validateStep(currentStep)) {
+            if (currentStep < totalSteps) {
+                currentStep++;
+                updateUI();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+    });
+    
+    prevBtn.addEventListener('click', function() {
+        if (currentStep > 1) {
+            currentStep--;
+            updateUI();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+    
+    updateUI();
+</script>
 {% endblock %}
