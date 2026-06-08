@@ -4,6 +4,7 @@ from django.shortcuts import redirect
 from django.utils.translation import gettext as _
 from django.views import View
 from django.views.generic import FormView, TemplateView
+from django.urls import reverse
 
 from .forms import LoginForm, RegisterForm
 
@@ -65,3 +66,29 @@ class LogoutView(View):
         logout(request)
         messages.info(request, _('Vous avez été déconnecté.'))
         return redirect('authentication:login')
+    
+
+class ContactView(View):
+    """
+    Vue pour traiter le formulaire de contact
+    """
+    
+    def post(self, request, *args, **kwargs):
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip()
+        message = request.POST.get('message', '').strip()
+        
+        if not name or not email or not message:
+            messages.error(request, "Tous les champs sont obligatoires.")
+            return redirect(reverse('authentication:home') + '#contact')
+        
+       
+        messages.success(
+            request, 
+            f"Merci {name} ! Votre message a bien été envoyé. Nous vous répondrons dans les plus brefs délais."
+        )
+        
+        return redirect(reverse('authentication:home') + '#contact')
+    
+    def get(self, request, *args, **kwargs):
+        return redirect('authentication:home')

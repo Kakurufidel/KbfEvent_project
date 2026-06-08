@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
 
+from django.utils.translation import gettext_lazy as _
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'django-insecure-8x9y2z3a4b5c6d7e8f9g0h1i2j3k4l5m6n7o8p9q'
@@ -81,7 +84,7 @@ USE_TZ = True
 LANGUAGES = [
     ('fr', 'Français'),
     ('en', 'English'),
-    ('sw', 'Kiswahili'),
+
 ]
 
 LOCALE_PATHS = [

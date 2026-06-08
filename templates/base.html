@@ -1,187 +1,227 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}KbfEven - Gestion d'événements{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>KbfEven – {% block title %}Gestion d'événements{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            --bg-gradient-dark: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            --bg-gradient-light: linear-gradient(135deg, #f5f7fa, #c3cfe2);
+            --card-dark: rgba(255, 255, 255, 0.05);
+            --card-light: rgba(0, 0, 0, 0.03);
         }
-        
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        }
+        body { transition: background 0.3s ease, color 0.2s ease; }
+        .dark body { background: var(--bg-gradient-dark); color: #ffffff; }
+        .light body { background: var(--bg-gradient-light); color: #1f2937; }
         
         .glass-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(12px);
+            border-radius: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
         }
+        .dark .glass-card { background: var(--card-dark); }
+        .light .glass-card { background: var(--card-light); border-color: rgba(0,0,0,0.1); }
+        .glass-card:hover { transform: translateY(-5px); box-shadow: 0 20px 35px -10px rgba(0,0,0,0.3); }
         
-        /* Smooth scroll */
-        html {
-            scroll-behavior: smooth;
+        .btn-gradient {
+            background: linear-gradient(135deg, #8B5CF6, #06B6D4);
+            transition: all 0.2s;
         }
+        .btn-gradient:hover { opacity: 0.9; transform: scale(1.02); }
+        .btn-outline {
+            border: 1px solid #8B5CF6;
+            background: transparent;
+            transition: all 0.2s;
+        }
+        .btn-outline:hover { background: rgba(139, 92, 246, 0.2); }
         
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 10px;
+        /* Sidebar mobile */
+        #sidebar {
+            position: fixed; top: 0; left: -280px; width: 280px; height: 100%;
+            transition: left 0.3s ease; z-index: 50;
+            backdrop-filter: blur(20px);
         }
+        .dark #sidebar { background: rgba(15, 12, 41, 0.98); }
+        .light #sidebar { background: rgba(255, 255, 255, 0.98); }
+        #sidebar.open { left: 0; }
         
-        ::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.1);
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5); z-index: 40; display: none;
         }
+        .overlay.active { display: block; }
         
-        ::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 5px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: rgba(255, 255, 255, 0.5);
-        }
-        
-        /* Animation classes */
-        .opacity-0 {
-            opacity: 0;
-        }
-        
-        .animate-fade-in {
-            animation: fadeIn 1s ease-out forwards;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+        html { scroll-behavior: smooth; }
+        .scroll-mt-20 { scroll-margin-top: 80px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(15px);} to { opacity: 1; transform: translateY(0);} }
+        .fade-in { animation: fadeIn 0.6s ease-out; }
     </style>
-    {% block extra_css %}{% endblock %}
+    {% block extra_head %}{% endblock %}
 </head>
-<body>
-    <!-- Navigation -->
-    <nav class="fixed top-0 left-0 right-0 z-50 bg-white/10 backdrop-blur-lg border-b border-white/20">
-        <div class="container mx-auto px-4 py-4">
-            <div class="flex justify-between items-center">
-                <a href="/" class="text-2xl font-bold text-white hover:scale-105 transition flex items-center gap-2">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>KbfEven</span>
-                </a>
-                
-                <div class="hidden md:flex items-center space-x-6">
-                    <a href="/" class="text-white hover:text-gray-200 transition">Home</a>
-                    <a href="#features" class="text-white hover:text-gray-200 transition">About us</a>
-                    <a href="#pricing" class="text-white hover:text-gray-200 transition">Products</a>
-                    <a href="#" class="text-white hover:text-gray-200 transition">Platform</a>
-                    <a href="#" class="text-white hover:text-gray-200 transition">Blogs</a>
+<body class="antialiased font-sans">
+    <div id="overlay" class="overlay" onclick="closeSidebar()"></div>
+    
+    <!-- Sidebar mobile -->
+    <div id="sidebar" class="shadow-2xl p-6 flex flex-col space-y-5">
+        <div class="flex justify-between items-center pb-4 border-b border-gray-700">
+            <span class="text-2xl font-bold text-purple-400">KbfEven</span>
+            <button onclick="closeSidebar()" class="text-2xl hover:text-purple-400"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <a href="/" class="py-2 hover:text-purple-400 transition" onclick="closeSidebar()">
+            <i class="fas fa-home mr-3 w-5"></i>Accueil
+        </a>
+        <a href="/#about" class="py-2 hover:text-purple-400 transition" onclick="closeSidebar()">
+            <i class="fas fa-info-circle mr-3 w-5"></i>À propos
+        </a>
+        <a href="/#events" class="py-2 hover:text-purple-400 transition" onclick="closeSidebar()">
+            <i class="fas fa-calendar-alt mr-3 w-5"></i>Nos événements
+        </a>
+        <a href="/#contact" class="py-2 hover:text-purple-400 transition" onclick="closeSidebar()">
+            <i class="fas fa-envelope mr-3 w-5"></i>Contact
+        </a>
+        
+        <div class="pt-4 mt-4 border-t border-gray-700"></div>
+        
+        {% if user.is_authenticated %}
+            <a href="{% url 'authentication:dashboard' %}" class="py-2 hover:text-purple-400 transition">
+                <i class="fas fa-tachometer-alt mr-3 w-5"></i>Dashboard
+            </a>
+            <a href="{% url 'events:event_create' %}" class="py-2 hover:text-purple-400 transition">
+                <i class="fas fa-plus-circle mr-3 w-5"></i>Événement
+            </a>
+            <a href="{% url 'authentication:logout' %}" class="py-2 hover:text-purple-400 transition">
+                <i class="fas fa-sign-out-alt mr-3 w-5"></i>Déconnexion
+            </a>
+        {% else %}
+            <a href="{% url 'authentication:login' %}" class="py-2 hover:text-purple-400 transition">
+                <i class="fas fa-sign-in-alt mr-3 w-5"></i>Connexion
+            </a>
+            <a href="{% url 'authentication:register' %}" class="btn-gradient px-4 py-2 rounded-full text-center mt-2">
+                Inscription
+            </a>
+        {% endif %}
+        
+        <button id="theme-toggle-mobile" class="mt-4 text-left text-sm hover:text-purple-400">
+            <i class="fas fa-moon mr-2"></i> Thème
+        </button>
+    </div>
+
+    <!-- Navbar desktop -->
+    <nav class="fixed top-0 left-0 right-0 z-30 backdrop-blur-xl bg-opacity-90 dark:bg-gray-900/90 light:bg-white/90 shadow-md">
+        <div class="container mx-auto px-4 sm:px-6 py-3">
+            <div class="flex items-center justify-between">
+                <!-- Logo + hamburger mobile -->
+                <div class="flex items-center space-x-3">
+                    <button id="hamburger" class="block md:hidden text-2xl hover:text-purple-400 transition" onclick="openSidebar()">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <a href="/" class="text-xl sm:text-2xl font-bold text-purple-400">
+                        KbfEven
+                    </a>
                 </div>
                 
-                <div class="flex gap-3">
+                <!-- Liens desktop -->
+                <div class="hidden md:flex items-center space-x-6">
+                    <a href="/#about" class="text-gray-300 hover:text-purple-400 transition text-sm">À propos</a>
+                    <a href="/#events" class="text-gray-300 hover:text-purple-400 transition text-sm">Nos événements</a>
+                    <a href="/#contact" class="text-gray-300 hover:text-purple-400 transition text-sm">Contact</a>
+                </div>
+                
+                <!-- Actions droite -->
+                <div class="flex items-center space-x-3">
+                    <button id="theme-toggle-desktop" class="text-xl hover:text-purple-400 transition">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    
                     {% if user.is_authenticated %}
-                        <a href="{% url 'events:event_list' %}" class="px-5 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition text-white">
-                            Dashboard
+                        <a href="{% url 'authentication:dashboard' %}" class="hidden sm:inline-block text-sm hover:text-purple-400 transition">
+                            <i class="fas fa-user-circle mr-1"></i> {{ user.username|truncatechars:10 }}
                         </a>
-                        <a href="{% url 'authentication:logout' %}" class="px-5 py-2 bg-red-500/20 rounded-lg hover:bg-red-500/30 transition text-white">
-                            Logout
+                        <a href="{% url 'authentication:logout' %}" class="hidden sm:inline-block text-sm hover:text-purple-400 transition">
+                            <i class="fas fa-sign-out-alt"></i>
                         </a>
                     {% else %}
-                        <a href="{% url 'authentication:login' %}" class="px-5 py-2 text-white hover:bg-white/10 rounded-lg transition">
-                            Login
+                        <a href="{% url 'authentication:login' %}" class="hidden sm:inline-block text-sm hover:text-purple-400 transition">
+                            Connexion
                         </a>
-                        <a href="{% url 'authentication:register' %}" class="px-5 py-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg hover:shadow-lg transition text-white">
-                            Get Started
+                        <a href="{% url 'authentication:register' %}" class="btn-gradient px-4 py-1.5 rounded-full text-sm font-semibold hidden sm:inline-block">
+                            Inscription
                         </a>
                     {% endif %}
                 </div>
             </div>
         </div>
     </nav>
-    
-    <!-- Main Content -->
-    <main class="pt-16">
+
+    <!-- Espace pour navbar fixe -->
+    <div class="h-16"></div>
+
+    <!-- Messages flash -->
+    <main class="container mx-auto px-4 py-6 fade-in">
         {% if messages %}
-            <div class="fixed top-20 right-4 z-50 space-y-2">
-                {% for message in messages %}
-                    <div class="glass-card px-6 py-3 rounded-lg shadow-lg animate-fade-in">
-                        {{ message }}
-                    </div>
-                {% endfor %}
-            </div>
+            {% for message in messages %}
+                <div class="mb-4 p-4 rounded-xl {% if message.tags == 'success' %}bg-green-500/20 border border-green-500{% elif message.tags == 'error' %}bg-red-500/20 border border-red-500{% else %}bg-blue-500/20 border border-blue-500{% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
         {% endif %}
-        
         {% block content %}{% endblock %}
     </main>
-    
-    <!-- Footer -->
-    <footer class="bg-black/20 py-12 mt-20">
+
+    <footer class="text-center text-gray-400 py-6 text-sm border-t border-gray-800 mt-8">
         <div class="container mx-auto px-4">
-            <div class="grid md:grid-cols-4 gap-8">
-                <div>
-                    <h3 class="text-xl font-bold mb-4">KbfEven</h3>
-                    <p class="text-gray-300 text-sm">Smart event management for modern organizers.</p>
-                </div>
-                <div>
-                    <h4 class="font-semibold mb-4">Product</h4>
-                    <ul class="space-y-2 text-sm text-gray-300">
-                        <li><a href="#" class="hover:text-white">Features</a></li>
-                        <li><a href="#" class="hover:text-white">Pricing</a></li>
-                        <li><a href="#" class="hover:text-white">API</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold mb-4">Company</h4>
-                    <ul class="space-y-2 text-sm text-gray-300">
-                        <li><a href="#" class="hover:text-white">About</a></li>
-                        <li><a href="#" class="hover:text-white">Blog</a></li>
-                        <li><a href="#" class="hover:text-white">Contact</a></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="font-semibold mb-4">Legal</h4>
-                    <ul class="space-y-2 text-sm text-gray-300">
-                        <li><a href="#" class="hover:text-white">Privacy</a></li>
-                        <li><a href="#" class="hover:text-white">Terms</a></li>
-                        <li><a href="#" class="hover:text-white">Security</a></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="border-t border-white/10 mt-8 pt-8 text-center text-sm text-gray-400">
-                &copy; 2024 KbfEven. All rights reserved.
-            </div>
+            <p>© 2025 KbfEven – Organisation simplifiée</p>
         </div>
     </footer>
-    
+
     <script>
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            });
+        // Thème clair/sombre
+        const htmlElement = document.documentElement;
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        if (savedTheme === 'light') {
+            htmlElement.classList.remove('dark');
+            htmlElement.classList.add('light');
+        } else {
+            htmlElement.classList.remove('light');
+            htmlElement.classList.add('dark');
+        }
+        
+        function toggleTheme() {
+            if (htmlElement.classList.contains('dark')) {
+                htmlElement.classList.remove('dark');
+                htmlElement.classList.add('light');
+                localStorage.setItem('theme', 'light');
+            } else {
+                htmlElement.classList.remove('light');
+                htmlElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        
+        document.querySelectorAll('#theme-toggle-desktop, #theme-toggle-mobile').forEach(btn => {
+            if (btn) btn.addEventListener('click', toggleTheme);
         });
         
-        // Auto-hide messages after 5 seconds
-        setTimeout(() => {
-            document.querySelectorAll('.fixed.top-20 .glass-card').forEach(msg => {
-                msg.style.opacity = '0';
-                setTimeout(() => msg.remove(), 300);
-            });
-        }, 5000);
+        // Sidebar
+        function openSidebar() {
+            document.getElementById('sidebar').classList.add('open');
+            document.getElementById('overlay').classList.add('active');
+        }
+        
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('open');
+            document.getElementById('overlay').classList.remove('active');
+        }
+        
+        // Fermer avec Echap
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') closeSidebar();
+        });
     </script>
     {% block extra_js %}{% endblock %}
 </body>
