@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load i18n %}
+{% load static %}
+
+{% block title %}{{ event.title }} - {% trans "Event" %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center animate-fade-in-up">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm border-0 mb-4">
+            {% if event.event_photo %}
+            <img src="{{ event.event_photo.url }}" class="card-img-top" alt="{{ event.title }}" style="max-height: 400px; object-fit: cover;">
+            {% endif %}
+            <div class="card-body text-center">
+                <h2 class="card-title">{{ event.title }}</h2>
+                <div class="row mt-4 text-muted">
+                    <div class="col-12 col-md-4 mb-2">
+                        <i class="bi bi-calendar me-1"></i>{{ event.event_date|date:"l d F Y" }}
+                    </div>
+                    <div class="col-12 col-md-4 mb-2">
+                        <i class="bi bi-clock me-1"></i>{{ event.event_date|date:"H:i" }}
+                    </div>
+                    <div class="col-12 col-md-4 mb-2">
+                        <i class="bi bi-geo-alt me-1"></i>{{ event.location_name }}
+                    </div>
+                </div>
+                <hr>
+                <p><strong>{% trans "Dress code" %}:</strong> {{ event.dress_code }}</p>
+                {% if event.description %}
+                <p>{{ event.description }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if event.qr_code %}
+        <div class="card shadow-sm border-0">
+            <div class="card-body text-center">
+                <h5>{% trans "QR Code" %}</h5>
+                <img src="{{ event.qr_code.url }}" alt="QR Code" class="img-fluid" style="max-width: 200px;">
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,266 @@
+:root {
+    --primary-color: #0d6efd;
+    --success-color: #198754;
+    --danger-color: #dc3545;
+    --warning-color: #ffc107;
+}
+
+/* ---- Layout ---- */
+html, body {
+    height: 100%;
+}
+
+body {
+    background-color: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+}
+
+main.container {
+    flex: 1 0 auto;
+    width: 100%;
+}
+
+footer {
+    flex-shrink: 0;
+}
+
+/* ---- Navbar ---- */
+.navbar-brand {
+    font-size: 1.15rem;
+}
+
+/* ---- Cards ---- */
+.card {
+    border: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1) !important;
+}
+
+.card-img-top {
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+
+/* ---- Animations ---- */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes countUp {
+    from { opacity: 0; transform: scale(0.5); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+    animation: fadeIn 0.5s ease forwards;
+}
+
+.animate-fade-in-up {
+    animation: fadeInUp 0.5s ease forwards;
+}
+
+.animate-slide-down {
+    animation: slideDown 0.3s ease forwards;
+}
+
+.animate-pulse {
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-count {
+    animation: countUp 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* ---- Event Cards Grid ---- */
+.event-photo {
+    height: 200px;
+    object-fit: cover;
+}
+
+.event-photo-detail {
+    max-height: 350px;
+    object-fit: cover;
+}
+
+.rsvp-photo {
+    max-height: 250px;
+    object-fit: cover;
+}
+
+/* ---- Breadcrumb ---- */
+.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+}
+
+/* ---- Forms ---- */
+.form-control:focus, .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+
+/* ---- Tables ---- */
+.table > :not(caption) > * > * {
+    vertical-align: middle;
+}
+
+/* ---- Alerts ---- */
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+    animation: slideDown 0.3s ease forwards;
+}
+
+.alert .btn-close {
+    font-size: 0.75rem;
+}
+
+/* ---- Modals ---- */
+.modal-content {
+    border: none;
+    border-radius: 0.5rem;
+}
+
+.modal.fade .modal-dialog {
+    transition: transform 0.3s ease-out;
+}
+
+/* ---- Badges ---- */
+.badge {
+    font-weight: 500;
+}
+
+/* ---- Stat cards ---- */
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
+}
+
+/* ---- Buttons ---- */
+.btn {
+    transition: all 0.2s ease;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+}
+
+/* ---- Guest rows ---- */
+.guest-row {
+    transition: background-color 0.2s ease;
+}
+
+.guest-row:hover {
+    background-color: rgba(13, 110, 253, 0.04);
+}
+
+/* ---- RSVP radios ---- */
+.rsvp-radio-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.rsvp-radio-card:hover {
+    border-color: var(--primary-color);
+    background-color: rgba(13, 110, 253, 0.04);
+}
+
+.rsvp-radio-card.selected {
+    border-color: var(--primary-color);
+    background-color: rgba(13, 110, 253, 0.08);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 767.98px) {
+    .navbar-brand {
+        font-size: 1rem;
+    }
+
+    .event-photo {
+        height: 160px;
+    }
+
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.35rem; }
+    h3 { font-size: 1.2rem; }
+    h4 { font-size: 1.1rem; }
+
+    .table-responsive {
+        font-size: 0.9rem;
+    }
+
+    .btn {
+        font-size: 0.9rem;
+    }
+
+    .stat-value {
+        font-size: 1.35rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .container {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .event-photo {
+        height: 140px;
+    }
+
+    .card-body {
+        padding: 1rem;
+    }
+}
+
+@media (min-width: 768px) {
+    .w-md-auto {
+        width: auto !important;
+    }
+}

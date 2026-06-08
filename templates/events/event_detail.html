@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ event.title }} - {% trans "Event Management" %}{% endblock %}
+
+{% block content %}
+<div class="mb-4 animate-fade-in">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'events:event_list' %}">{% trans "My Events" %}</a></li>
+            <li class="breadcrumb-item active">{{ event.title }}</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="row animate-fade-in-up">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm mb-4 border-0">
+            {% if event.event_photo %}
+            <img src="{{ event.event_photo.url }}" class="card-img-top event-photo-detail" alt="{{ event.title }}">
+            {% endif %}
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <h3 class="card-title">{{ event.title }}</h3>
+                    <div>
+                        <a href="{% url 'events:edit_event' event.id %}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> {% trans "Edit" %}
+                        </a>
+                    </div>
+                </div>
+                <hr>
+                <div class="row g-3">
+                    <div class="col-12 col-sm-6">
+                        <p class="mb-1"><strong><i class="bi bi-tag me-1"></i>{% trans "Type" %}:</strong>
+                            {{ event.get_event_type_display }}{% if event.event_type_other %} - {{ event.event_type_other }}{% endif %}</p>
+                        <p class="mb-1"><strong><i class="bi bi-geo-alt me-1"></i>{% trans "Location" %}:</strong> {{ event.location_name }}</p>
+                        <p class="mb-1"><strong><i class="bi bi-clock me-1"></i>{% trans "Date" %}:</strong> {{ event.event_date|date:"l d F Y H:i" }}</p>
+                    </div>
+                    <div class="col-12 col-sm-6">
+                        <p class="mb-1"><strong><i class="bi bi-cup-straw me-1"></i>{% trans "Drinks" %}:</strong></p>
+                        <ul class="mb-1">
+                            {% for drink in event.get_drinks_list %}
+                            <li>{{ drink }}</li>
+                            {% endfor %}
+                        </ul>
+                        <p class="mb-1"><strong><i class="bi bi-tshirt me-1"></i>{% trans "Dress code" %}:</strong> {{ event.dress_code }}</p>
+                    </div>
+                </div>
+                {% if event.description %}
+                <hr>
+                <p><strong>{% trans "Description" %}:</strong></p>
+                <p>{{ event.description }}</p>
+                {% endif %}
+                <hr>
+                <p class="text-muted small mb-0">
+                    {% trans "Status" %}:
+                    {% if event.is_published %}
+                    <span class="badge bg-success">{% trans "Published" %}</span>
+                    {% else %}
+                    <span class="badge bg-warning text-dark">{% trans "Draft" %}</span>
+                    {% endif %}
+                    {% if event.is_past %}
+                    <span class="badge bg-secondary">{% trans "Past event" %}</span>
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 col-lg-4">
+        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up stagger-1">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-bar-chart me-1"></i>{% trans "Statistics" %}</h5>
+                <div class="row g-2 text-center">
+                    <div class="col-6 mb-2">
+                        <div class="p-3 bg-light rounded">
+                            <div class="stat-value text-primary">{{ stats.total }}</div>
+                            <div class="stat-label text-muted">{% trans "Total" %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6 mb-2">
+                        <div class="p-3 bg-light rounded">
+                            <div class="stat-value text-success">{{ stats.confirmed }}</div>
+                            <div class="stat-label text-muted">{% trans "Confirmed" %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded">
+                            <div class="stat-value text-danger">{{ stats.declined }}</div>
+                            <div class="stat-label text-muted">{% trans "Declined" %}</div>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded">
+                            <div class="stat-value text-warning">{{ stats.pending }}</div>
+                            <div class="stat-label text-muted">{% trans "Pending" %}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up stagger-2">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-download me-1"></i>{% trans "Export" %}</h5>
+                <div class="d-grid gap-2">
+                    <a href="{% url 'guests:export_csv' event.id %}" class="btn btn-outline-success">
+                        <i class="bi bi-filetype-csv me-1"></i>{% trans "Export CSV" %}
+                    </a>
+                    <a href="{% url 'guests:export_excel' event.id %}" class="btn btn-outline-primary">
+                        <i class="bi bi-file-earmark-excel me-1"></i>{% trans "Export Excel" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up stagger-3">
+            <div class="card-body">
+                <h5 class="card-title"><i class="bi bi-link-45deg me-1"></i>{% trans "Quick Links" %}</h5>
+                <a href="{% url 'guests:guest_list' event.id %}" class="btn btn-outline-info w-100 mb-2">
+                    <i class="bi bi-people me-1"></i>{% trans "Guest List" %}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 animate-fade-in-up stagger-4">
+    <div class="card-body">
+        <h5 class="card-title">
+            <i class="bi bi-people me-1"></i>{% trans "Recent Guests" %}
+            <a href="{% url 'guests:guest_list' event.id %}" class="btn btn-sm btn-outline-primary float-end">
+                {% trans "View All" %}
+            </a>
+        </h5>
+        {% if guests %}
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Email" %}</th>
+                        <th>{% trans "Status" %}</th>
+                        <th>{% trans "Drink" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for guest in guests|slice:":10" %}
+                    <tr class="guest-row">
+                        <td>{{ guest.first_name }} {{ guest.last_name }}</td>
+                        <td>{{ guest.email }}</td>
+                        <td>
+                            {% if guest.status == 'confirmed' %}
+                            <span class="badge bg-success">{% trans "Confirmed" %}</span>
+                            {% elif guest.status == 'declined' %}
+                            <span class="badge bg-danger">{% trans "Declined" %}</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{% trans "Pending" %}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ guest.drink_choice|default:"-" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted mb-0">{% trans "No guests have been added yet." %}</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

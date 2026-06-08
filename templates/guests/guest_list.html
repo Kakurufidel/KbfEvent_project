@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Guest List" %} - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="mb-4 animate-fade-in">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'events:event_list' %}">{% trans "My Events" %}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'events:event_detail' event.id %}">{{ event.title }}</a></li>
+            <li class="breadcrumb-item active">{% trans "Guest List" %}</li>
+        </ol>
+    </nav>
+</div>
+
+<div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-4 animate-fade-in-up">
+    <h4 class="mb-0"><i class="bi bi-people me-2"></i>{{ event.title }} - {% trans "Guest List" %}</h4>
+    <div class="d-flex gap-2">
+        <a href="{% url 'guests:export_csv' event.id %}" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-filetype-csv me-1"></i>{% trans "CSV" %}
+        </a>
+        <a href="{% url 'guests:export_excel' event.id %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-file-earmark-excel me-1"></i>{% trans "Excel" %}
+        </a>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4 border-0 animate-fade-in-up stagger-1">
+    <div class="card-body">
+        <form method="get" class="row g-2">
+            <div class="col-12 col-md-6">
+                <input type="text" name="q" class="form-control" placeholder="{% trans 'Search by name or email...' %}" value="{{ search_query }}">
+            </div>
+            <div class="col-8 col-md-4">
+                <select name="status" class="form-select">
+                    <option value="">{% trans "All statuses" %}</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>{% trans "Pending" %}</option>
+                    <option value="confirmed" {% if status_filter == 'confirmed' %}selected{% endif %}>{% trans "Confirmed" %}</option>
+                    <option value="declined" {% if status_filter == 'declined' %}selected{% endif %}>{% trans "Declined" %}</option>
+                </select>
+            </div>
+            <div class="col-4 col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search me-1"></i>{% trans "Filter" %}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0 animate-fade-in-up stagger-2">
+    <div class="card-body">
+        {% if guests %}
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Email" %}</th>
+                        <th>{% trans "Phone" %}</th>
+                        <th>{% trans "Status" %}</th>
+                        <th>{% trans "Drink" %}</th>
+                        <th>{% trans "Companion" %}</th>
+                        <th>{% trans "Actions" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for guest in guests %}
+                    <tr class="guest-row">
+                        <td>{{ guest.first_name }} {{ guest.last_name }}</td>
+                        <td>{{ guest.email }}</td>
+                        <td>{{ guest.phone }}</td>
+                        <td>
+                            {% if guest.status == 'confirmed' %}
+                            <span class="badge bg-success">{% trans "Confirmed" %}</span>
+                            {% elif guest.status == 'declined' %}
+                            <span class="badge bg-danger">{% trans "Declined" %}</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">{% trans "Pending" %}</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ guest.drink_choice|default:"-" }}{% if guest.drink_other %} ({{ guest.drink_other }}){% endif %}</td>
+                        <td>
+                            {% if guest.is_accompanied %}
+                            <i class="bi bi-check-circle text-success"></i>
+                            {{ guest.companion_drink_choice|default:"-" }}{% if guest.companion_drink_other %} ({{ guest.companion_drink_other }}){% endif %}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-sm btn-outline-info" data-bs-toggle="modal" data-bs-target="#rsvpLinkModal{{ guest.id }}">
+                                <i class="bi bi-link-45deg"></i>
+                            </button>
+                        </td>
+                    </tr>
+
+                    <div class="modal fade" id="rsvpLinkModal{{ guest.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">{% trans "RSVP Link" %}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>{% blocktrans with name=guest.first_name %}Share this link with {{ name }} to confirm attendance:{% endblocktrans %}</p>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control" id="rsvpLink{{ guest.id }}" value="{{ request.scheme }}://{{ request.get_host }}{{ guest.get_rsvp_link }}" readonly>
+                                        <button class="btn btn-primary" type="button" onclick="copyRSVPLink('rsvpLink{{ guest.id }}')">
+                                            <i class="bi bi-clipboard"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center py-4 mb-0">
+            <i class="bi bi-people display-6 d-block mb-2"></i>
+            {% trans "No guests found." %}
+        </p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

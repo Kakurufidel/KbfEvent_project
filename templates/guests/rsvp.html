@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "RSVP" %} - {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-12 col-lg-8">
+        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up">
+            {% if event.event_photo %}
+            <img src="{{ event.event_photo.url }}" class="card-img-top rsvp-photo" alt="{{ event.title }}">
+            {% endif %}
+            <div class="card-body text-center">
+                <h3 class="card-title">{{ event.title }}</h3>
+                <div class="row mt-3 text-muted">
+                    <div class="col-12 col-md-4 mb-2">
+                        <i class="bi bi-calendar me-1"></i>{{ event.event_date|date:"l d F Y" }}
+                    </div>
+                    <div class="col-12 col-md-4 mb-2">
+                        <i class="bi bi-clock me-1"></i>{{ event.event_date|date:"H:i" }}
+                    </div>
+                    <div class="col-12 col-md-4 mb-2">
+                        <i class="bi bi-geo-alt me-1"></i>{{ event.location_name }}
+                    </div>
+                </div>
+                {% if event.location_gmap_link %}
+                <a href="{{ event.location_gmap_link }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                    <i class="bi bi-map me-1"></i>{% trans "View on Google Maps" %}
+                </a>
+                {% endif %}
+                {% if event.description %}
+                <p class="mt-3">{{ event.description }}</p>
+                {% endif %}
+                <p class="mt-2"><strong>{% trans "Dress code" %}:</strong> {{ event.dress_code }}</p>
+            </div>
+        </div>
+
+        <div class="card shadow-sm border-0 animate-fade-in-up stagger-1">
+            <div class="card-body p-4">
+                <h4 class="card-title mb-4">
+                    <i class="bi bi-envelope-check me-2"></i>{% trans "Confirm Your Attendance" %}
+                </h4>
+                <p class="text-muted">
+                    {% blocktrans with name=guest.first_name %}Hello {{ name }}, please confirm your attendance for this event.{% endblocktrans %}
+                </p>
+                <form method="post" novalidate>
+                    {% csrf_token %}
+                    {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                    </div>
+                    {% endif %}
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">{{ form.status.label }}</label>
+                        <div class="d-flex flex-column flex-sm-row gap-3">
+                            {% for radio in form.status %}
+                            <div class="rsvp-radio-card form-check border rounded-3 p-3 flex-fill {% if radio.data.value == 'confirmed' %}border-success{% else %}border-secondary{% endif %}">
+                                {{ radio.tag }}
+                                <label class="form-check-label w-100 cursor-pointer fw-medium" for="{{ radio.id_for_label }}">
+                                    {% if radio.data.value == 'confirmed' %}
+                                    <i class="bi bi-check-circle-fill text-success me-1"></i>
+                                    {% else %}
+                                    <i class="bi bi-x-circle-fill text-secondary me-1"></i>
+                                    {% endif %}
+                                    {{ radio.choice_label }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if form.status.errors %}<div class="text-danger small">{{ form.status.errors.0 }}</div>{% endif %}
+                    </div>
+
+                    <div id="confirmed-fields">
+                        <div class="mb-3">
+                            <label for="{{ form.drink_choice.id_for_label }}" class="form-label">{{ form.drink_choice.label }}</label>
+                            {{ form.drink_choice }}
+                            {% if form.drink_choice.errors %}<div class="text-danger small">{{ form.drink_choice.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div id="drink-other-field" class="mb-3" style="display: none;">
+                            <label for="{{ form.drink_other.id_for_label }}" class="form-label">{{ form.drink_other.label }}</label>
+                            {{ form.drink_other }}
+                            {% if form.drink_other.errors %}<div class="text-danger small">{{ form.drink_other.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            {{ form.is_accompanied }}
+                            <label class="form-check-label" for="{{ form.is_accompanied.id_for_label }}">
+                                {{ form.is_accompanied.label }}
+                            </label>
+                        </div>
+
+                        <div id="companion-fields" class="mb-3" style="display: none;">
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <h6>{% trans "Companion Information" %}</h6>
+                                    <div class="mb-3">
+                                        <label for="{{ form.companion_drink_choice.id_for_label }}" class="form-label">{{ form.companion_drink_choice.label }}</label>
+                                        {{ form.companion_drink_choice }}
+                                        {% if form.companion_drink_choice.errors %}<div class="text-danger small">{{ form.companion_drink_choice.errors.0 }}</div>{% endif %}
+                                    </div>
+                                    <div id="companion-drink-other-field" class="mb-3" style="display: none;">
+                                        <label for="{{ form.companion_drink_other.id_for_label }}" class="form-label">{{ form.companion_drink_other.label }}</label>
+                                        {{ form.companion_drink_other }}
+                                        {% if form.companion_drink_other.errors %}<div class="text-danger small">{{ form.companion_drink_other.errors.0 }}</div>{% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">
+                        <i class="bi bi-send me-1"></i>{% trans "Send My Response" %}
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
