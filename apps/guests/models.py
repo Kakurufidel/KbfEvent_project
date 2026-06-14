@@ -1,3 +1,7 @@
+# apps/guests/models.py
+import uuid
+import unicodedata
+import logging
 from django.db import models
 from django.conf import settings
 from django.core.mail import send_mail
@@ -5,15 +9,14 @@ from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
-import unicodedata
-import logging
-import uuid
+from django.urls import reverse
+
 logger = logging.getLogger(__name__)
 
 
 class InvitedGuest(models.Model):
     """
-    Liste des invités pré-enregistrés par l'organisateur.
+    Liste des invités pré-enregistrés par l'organisateur (import Excel).
     Ces personnes sont considérées comme des invités officiels.
     """
     event = models.ForeignKey(
@@ -22,7 +25,9 @@ class InvitedGuest(models.Model):
         related_name='invited_guests',
         verbose_name=_('événement'),
     )
-    name = models.CharField(_('nom'), max_length=200)
+    first_name = models.CharField(_('prénom'), max_length=100)
+    last_name = models.CharField(_('nom'), max_length=100)
+    middle_name = models.CharField(_('postnom'), max_length=100, blank=True)
     email = models.EmailField(_('email'), blank=True)
     phone = models.CharField(_('téléphone'), max_length=20, blank=True)
     created_by = models.ForeignKey(
@@ -31,45 +36,40 @@ class InvitedGuest(models.Model):
         verbose_name=_('créé par'),
     )
     created_at = models.DateTimeField(_('créé le'), auto_now_add=True)
-    
+
     class Meta:
         verbose_name = _('invité pré-enregistré')
         verbose_name_plural = _('invités pré-enregistrés')
         unique_together = ['event', 'email']
-        ordering = ['name']
-    
+        ordering = ['last_name', 'first_name']
+
     def __str__(self):
-        return f"{self.name} ({self.event.name})"
-    
-    @property
-    def has_responded(self):
-        """Vérifie si cet invité a déjà répondu"""
-        normalized_name = GuestResponse.normalize_name(self.name)
-        return GuestResponse.objects.filter(
-            event=self.event,
-            verification_status='verified'
-        ).exists()
-        # Note: La vérification se fait par nom normalisé dans la méthode
-        # verify_against_invited_list de GuestResponse
+        return f"{self.first_name} {self.last_name} ({self.event.name})"
+
+    def get_full_name(self):
+        if self.middle_name:
+            return f"{self.first_name} {self.middle_name} {self.last_name}"
+        return f"{self.first_name} {self.last_name}"
 
 
 class GuestResponse(models.Model):
     """
-    Réponse d'un invité (RSVP).
-    Peut provenir d'un invité officiel (verified) ou d'une personne non invitée (unverified).
+    Réponse d'un invité (RSVP) via le formulaire public.
     """
     
     class DrinkChoice(models.TextChoices):
         VIN = 'vin', _('Vin')
         BIERE = 'biere', _('Bière')
         SOFT = 'soft', _('Soft')
+        JUS = 'jus', _('Jus')
+        EAU = 'eau', _('Eau')
         OTHER = 'other', _('Autre')
     
     class VerificationStatus(models.TextChoices):
         VERIFIED = 'verified', _('Vérifié - Invité officiel')
-        UNVERIFIED = 'unverified', _('Non vérifié - Personne non invitée')
+        UNVERIFIED = 'unverified', _('Non vérifié')
     
-    # ========== RELATIONS ==========
+    # Relations
     event = models.ForeignKey(
         'events.Event',
         on_delete=models.CASCADE,
@@ -77,16 +77,23 @@ class GuestResponse(models.Model):
         verbose_name=_('événement'),
     )
     
-    # ========== INFORMATIONS RÉPONDANT ==========
-    name = models.CharField(_('nom complet'), max_length=200)
+    # Informations répondant
+    first_name = models.CharField(_('prénom'), max_length=100)
+    last_name = models.CharField(_('nom'), max_length=100)
     email = models.EmailField(_('email'))
     phone = models.CharField(_('téléphone'), max_length=20, blank=True)
     
-    # ========== RÉPONSE À L'INVITATION ==========
+    # Réponse
     will_attend = models.BooleanField(_('sera présent(e)'), default=True)
     number_of_guests = models.PositiveIntegerField(_('nombre de personnes'), default=1)
     
-    # ========== OPTIONS ==========
+    # Accompagnement
+    is_accompanied = models.BooleanField(_('accompagné(e)'), default=False)
+    companion_name = models.CharField(_('nom de l\'accompagnant'), max_length=200, blank=True)
+    companion_first_name = models.CharField(_('prénom accompagnant'), max_length=100, blank=True)
+    companion_last_name = models.CharField(_('nom accompagnant'), max_length=100, blank=True)
+    
+    # Boissons
     drink_choice = models.CharField(
         _('choix de boisson'),
         max_length=20,
@@ -94,101 +101,111 @@ class GuestResponse(models.Model):
         blank=True,
     )
     drink_other = models.CharField(_('autre boisson'), max_length=100, blank=True)
+    companion_drink_choice = models.CharField(
+        _('boisson accompagnant'),
+        max_length=20,
+        choices=DrinkChoice.choices,
+        blank=True,
+    )
+    companion_drink_other = models.CharField(_('autre boisson accompagnant'), max_length=100, blank=True)
+    
+    # Végétarien / notes
     is_vegan = models.BooleanField(_('végétarien/végétalien'), default=False)
     special_notes = models.TextField(_('notes spéciales'), blank=True)
     
-    # ========== VÉRIFICATION ==========
+    # Vérification
     verification_status = models.CharField(
         _('statut de vérification'),
         max_length=20,
         choices=VerificationStatus.choices,
         default=VerificationStatus.UNVERIFIED,
-        help_text=_('Vérifié = la personne était dans la liste des invités pré-enregistrés')
     )
     
-    # ========== MÉTADONNÉES ==========
+    # Métadonnées
     submitted_at = models.DateTimeField(_('soumis le'), auto_now_add=True)
     ip_address = models.GenericIPAddressField(_('adresse IP'), null=True, blank=True)
     
-    # ========== RAPPELS ==========
+    # Rappels
     reminder_sent = models.BooleanField(_('rappel envoyé'), default=False)
     reminder_sent_at = models.DateTimeField(_('rappel envoyé le'), null=True, blank=True)
+    
+    # Token pour invitation électronique
+    invitation_token = models.UUIDField(
+        _('token invitation'),
+        default=uuid.uuid4,
+        editable=False,
+        unique=True
+    )
     
     class Meta:
         verbose_name = _('réponse d\'invité')
         verbose_name_plural = _('réponses des invités')
         ordering = ['-submitted_at']
-        unique_together = ['event', 'email']  # Une réponse par email par événement
-    
+        unique_together = ['event', 'email']
+
     def __str__(self):
-        return f"{self.name} - {self.event.name} ({self.get_verification_status_display()})"
+        return f"{self.first_name} {self.last_name} - {self.event.name}"
+
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}"
     
-    # ========== MÉTHODES STATIQUES ==========
-    
+    def get_companion_full_name(self):
+        if self.companion_first_name and self.companion_last_name:
+            return f"{self.companion_first_name} {self.companion_last_name}"
+        return self.companion_name or ""
+
     @staticmethod
     def normalize_name(text):
-        """
-        Normalise un nom pour la comparaison:
-        - Convertit en minuscules
-        - Supprime les accents
-        - Supprime les espaces superflus
-        """
+        """Normalise un nom pour la comparaison."""
         if not text:
             return ""
         text = text.lower().strip()
-        # Normalisation Unicode pour supprimer les accents
         text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8')
         return text
-    
-    # ========== LOGIQUE MÉTIER ==========
-    
+
     def verify_against_invited_list(self):
-        """
-        Vérifie si cette réponse correspond à un invité pré-enregistré.
+        """Vérifie si cette réponse correspond à un invité pré-enregistré."""
+        normalized_first = self.normalize_name(self.first_name)
+        normalized_last = self.normalize_name(self.last_name)
         
-        Returns:
-            bool: True si correspondance trouvée, False sinon
-        
-        Logique:
-            1. Normalise le nom du répondant
-            2. Compare avec chaque nom normalisé des invités pré-enregistrés
-            3. Si correspondance → status = 'verified'
-            4. Sauvegarde automatiquement
-        """
-        normalized_response_name = self.normalize_name(self.name)
-        
-        for invited_guest in self.event.invited_guests.all():
-            if self.normalize_name(invited_guest.name) == normalized_response_name:
+        for invited in self.event.invited_guests.all():
+            if (self.normalize_name(invited.first_name) == normalized_first and
+                self.normalize_name(invited.last_name) == normalized_last):
                 self.verification_status = 'verified'
                 self.save(update_fields=['verification_status'])
-                logger.info(f"Réponse vérifiée: {self.name} correspond à l'invité {invited_guest.name}")
+                logger.info(f"Réponse vérifiée: {self.get_full_name()}")
                 return True
         
-        logger.warning(f"Réponse non vérifiée: {self.name} n'est pas dans la liste des invités")
-        return False
-    
-    def send_confirmation_email(self):
-        """
-        Envoie un email de confirmation au répondant.
-        L'email est différent selon que la personne est vérifiée ou non.
+        # Vérification par email si noms ne correspondent pas
+        for invited in self.event.invited_guests.all():
+            if invited.email and invited.email.lower() == self.email.lower():
+                self.verification_status = 'verified'
+                self.save(update_fields=['verification_status'])
+                logger.info(f"Réponse vérifiée par email: {self.get_full_name()}")
+                return True
         
-        Returns:
-            bool: True si l'email a été envoyé, False sinon
-        """
+        logger.warning(f"Réponse non vérifiée: {self.get_full_name()}")
+        return False
+
+    def send_confirmation_email(self):
+        """Envoie l'invitation électronique avec lien Google Agenda."""
         event = self.event
         
-        # Choisir le template selon le statut de vérification
         if self.verification_status == 'verified':
             template_name = 'emails/rsvp_confirmation_verified.html'
-            subject = f"Confirmation de votre présence - {event.name}"
+            subject = f"✅ Confirmation - {event.name}"
         else:
             template_name = 'emails/rsvp_confirmation_unverified.html'
-            subject = f"Nous avons bien reçu votre réponse - {event.name}"
+            subject = f"📩 Nous avons reçu votre réponse - {event.name}"
+        
+        # Construire le lien d'invitation électronique
+        invitation_link = self.get_invitation_link()
         
         context = {
-            'guest_name': self.name,
+            'guest_name': self.get_full_name(),
             'event': event,
             'response': self,
+            'invitation_link': invitation_link,
             'google_calendar_link': event.get_google_calendar_link(),
             'google_maps_link': event.google_maps_link,
             'is_verified': self.verification_status == 'verified',
@@ -209,20 +226,18 @@ class GuestResponse(models.Model):
             logger.info(f"Email de confirmation envoyé à {self.email}")
             return True
         except Exception as e:
-            logger.error(f"Erreur lors de l'envoi de l'email à {self.email}: {str(e)}")
+            logger.error(f"Erreur envoi email à {self.email}: {str(e)}")
             return False
-    
+
     def send_reminder(self):
-        """
-        Envoie un email de rappel (différent de la confirmation)
-        """
+        """Envoie un email de rappel (J-7 ou J-2)."""
         if self.reminder_sent:
             return False
         
         event = self.event
         
         context = {
-            'guest_name': self.name,
+            'guest_name': self.get_full_name(),
             'event': event,
             'response': self,
             'google_calendar_link': event.get_google_calendar_link(),
@@ -234,7 +249,7 @@ class GuestResponse(models.Model):
             plain_message = strip_tags(html_message)
             
             send_mail(
-                subject=f"Rappel: {event.name} - Merci de confirmer votre présence",
+                subject=f"📅 Rappel: {event.name} - Confirmez votre présence",
                 message=plain_message,
                 from_email=event.sender_email or settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[self.email],
@@ -245,119 +260,32 @@ class GuestResponse(models.Model):
             self.reminder_sent = True
             self.reminder_sent_at = timezone.now()
             self.save(update_fields=['reminder_sent', 'reminder_sent_at'])
+            logger.info(f"Rappel envoyé à {self.email}")
             return True
         except Exception as e:
-            logger.error(f"Erreur lors de l'envoi du rappel à {self.email}: {str(e)}")
+            logger.error(f"Erreur envoi rappel à {self.email}: {str(e)}")
             return False
-    
-    # ========== PROPRIÉTÉS UTILITAIRES ==========
-    
+
+    def get_invitation_link(self, request=None):
+        """Lien pour télécharger l'invitation électronique."""
+        if request:
+            return request.build_absolute_uri(
+                reverse('guests:invitation_pdf', args=[str(self.invitation_token)])
+            )
+        return reverse('guests:invitation_pdf', args=[str(self.invitation_token)])
+
     @property
     def is_verified(self):
-        """Alias pour verification_status == 'verified'"""
         return self.verification_status == 'verified'
     
     @property
     def drink_display(self):
-        """Retourne l'affichage lisible du choix de boisson"""
         if self.drink_choice == 'other':
-            return self.drink_other or "Autre (non précisé)"
+            return self.drink_other or "Autre"
         return self.get_drink_choice_display() or "Non spécifié"
     
     @property
-    def matched_invited_guest(self):
-        """
-        Retourne l'invité pré-enregistré correspondant (si vérifié)
-        """
-        if not self.is_verified:
-            return None
-        
-        normalized_name = self.normalize_name(self.name)
-        for guest in self.event.invited_guests.all():
-            if self.normalize_name(guest.name) == normalized_name:
-                return guest
-        return None
-
-class Guest(models.Model):
-    """Modèle pour les invités """
-    
-    class Status(models.TextChoices):
-        PENDING = 'pending', _('En attente')
-        CONFIRMED = 'confirmed', _('Confirmé')
-        DECLINED = 'declined', _('Décliné')
-    
-    first_name = models.CharField(_('prénom'), max_length=150)
-    last_name = models.CharField(_('nom'), max_length=150)
-    email = models.EmailField(_('email'))
-    phone = models.CharField(_('téléphone'), max_length=30, blank=True)
-    event = models.ForeignKey(
-        'events.Event',
-        on_delete=models.CASCADE,
-        related_name='guests',
-        verbose_name=_('événement'),
-    )
-    drink_choice = models.CharField(
-        _('choix de boisson'),
-        max_length=200,
-        blank=True,
-        null=True,
-    )
-    drink_other = models.TextField(
-        _('autre boisson'),
-        blank=True,
-        null=True,
-    )
-    is_accompanied = models.BooleanField(
-        _('accompagné'),
-        default=False,
-    )
-    companion_drink_choice = models.CharField(
-        _('choix boisson accompagnant'),
-        max_length=200,
-        blank=True,
-        null=True,
-    )
-    companion_drink_other = models.TextField(
-        _('autre boisson accompagnant'),
-        blank=True,
-        null=True,
-    )
-    status = models.CharField(
-        _('statut'),
-        max_length=20,
-        choices=Status.choices,
-        default=Status.PENDING,
-    )
-    unique_token = models.UUIDField(
-        _('token unique'),
-        default=uuid.uuid4,
-        editable=False,
-        unique=True,
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name = _('invité')
-        verbose_name_plural = _('invités')
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f'{self.first_name} {self.last_name}'
-
-    def get_full_name(self):
-        return f'{self.first_name} {self.last_name}'
-
-    def get_rsvp_link(self, request=None):
-        from django.urls import reverse
-        relative_url = reverse('guests:rsvp', kwargs={'token': self.unique_token})
-        if request:
-            return request.build_absolute_uri(relative_url)
-        return relative_url
-
-    def confirm(self):
-        self.status = self.Status.CONFIRMED
-        self.save(update_fields=['status'])
-
-    def decline(self):
-        self.status = self.Status.DECLINED
-        self.save(update_fields=['status'])
+    def companion_drink_display(self):
+        if self.companion_drink_choice == 'other':
+            return self.companion_drink_other or "Autre"
+        return self.get_companion_drink_choice_display() or "Non spécifié"

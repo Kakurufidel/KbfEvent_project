@@ -10,7 +10,7 @@ class EventForm(forms.ModelForm):
         label='Options de boissons',
         required=False,
         widget=forms.TextInput(attrs={
-            'placeholder': 'Vin, Bière, Soft, Jus...',
+            'placeholder': 'Vin, Bière, Soft, Jus, amarula...',
             'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400'
         }),
         help_text='Séparez les boissons par des virgules'
