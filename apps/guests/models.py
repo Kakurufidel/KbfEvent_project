@@ -2,6 +2,8 @@
 import uuid
 import unicodedata
 import logging
+import secrets
+import string
 from django.db import models
 from django.conf import settings
 from django.core.mail import send_mail
@@ -137,6 +139,19 @@ class GuestResponse(models.Model):
         unique=True
     )
     
+    # ========== NOUVEAUX CHAMPS (check-in, tables, paiement) ==========
+    checkin_time = models.DateTimeField(_('heure d\'arrivée'), null=True, blank=True)
+    is_excess = models.BooleanField(_('excédent'), default=False)
+    short_code = models.CharField(_('code court'), max_length=5, unique=True, null=True, blank=True)
+    table = models.ForeignKey(
+        'events.Table',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='guests',
+        verbose_name=_('table assignée'),
+    )
+    
     class Meta:
         verbose_name = _('réponse d\'invité')
         verbose_name_plural = _('réponses des invités')
@@ -156,15 +171,27 @@ class GuestResponse(models.Model):
 
     @staticmethod
     def normalize_name(text):
-        """Normalise un nom pour la comparaison."""
         if not text:
             return ""
         text = text.lower().strip()
         text = unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('utf-8')
         return text
 
+    def generate_short_code(self):
+        import secrets, string
+        alphabet = string.ascii_uppercase + string.digits
+        while True:
+            code = ''.join(secrets.choice(alphabet) for _ in range(5))
+            if not GuestResponse.objects.filter(event=self.event, short_code=code).exists():
+                return code
+
+    def save(self, *args, **kwargs):
+        if not self.short_code:
+            self.short_code = self.generate_short_code()
+        super().save(*args, **kwargs)
+
+
     def verify_against_invited_list(self):
-        """Vérifie si cette réponse correspond à un invité pré-enregistré."""
         normalized_first = self.normalize_name(self.first_name)
         normalized_last = self.normalize_name(self.last_name)
         
@@ -176,7 +203,6 @@ class GuestResponse(models.Model):
                 logger.info(f"Réponse vérifiée: {self.get_full_name()}")
                 return True
         
-        # Vérification par email si noms ne correspondent pas
         for invited in self.event.invited_guests.all():
             if invited.email and invited.email.lower() == self.email.lower():
                 self.verification_status = 'verified'
@@ -188,17 +214,15 @@ class GuestResponse(models.Model):
         return False
 
     def send_confirmation_email(self):
-        """Envoie l'invitation électronique avec lien Google Agenda."""
         event = self.event
         
         if self.verification_status == 'verified':
-            template_name = 'emails/rsvp_confirmation_verified.html'
-            subject = f"✅ Confirmation - {event.name}"
+            template_name = 'emails/confirm_verified.html'
+            subject = f"Confirmation - {event.name}"
         else:
-            template_name = 'emails/rsvp_confirmation_unverified.html'
-            subject = f"📩 Nous avons reçu votre réponse - {event.name}"
+            template_name = 'emails/confirm_unverified.html'
+            subject = f"Réception de votre réponse - {event.name}"
         
-        # Construire le lien d'invitation électronique
         invitation_link = self.get_invitation_link()
         
         context = {
@@ -230,7 +254,6 @@ class GuestResponse(models.Model):
             return False
 
     def send_reminder(self):
-        """Envoie un email de rappel (J-7 ou J-2)."""
         if self.reminder_sent:
             return False
         
@@ -245,11 +268,11 @@ class GuestResponse(models.Model):
         }
         
         try:
-            html_message = render_to_string('emails/rsvp_reminder.html', context)
+            html_message = render_to_string('emails/reminder.html', context)
             plain_message = strip_tags(html_message)
             
             send_mail(
-                subject=f"📅 Rappel: {event.name} - Confirmez votre présence",
+                subject=f"Rappel: {event.name} - Confirmez votre présence",
                 message=plain_message,
                 from_email=event.sender_email or settings.DEFAULT_FROM_EMAIL,
                 recipient_list=[self.email],
@@ -267,7 +290,6 @@ class GuestResponse(models.Model):
             return False
 
     def get_invitation_link(self, request=None):
-        """Lien pour télécharger l'invitation électronique."""
         if request:
             return request.build_absolute_uri(
                 reverse('guests:invitation_pdf', args=[str(self.invitation_token)])
