@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Accès autorisé" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <i class="fas fa-check-circle fa-4x mb-3"></i>
+                    <h2>{% trans "Bienvenue !" %}</h2>
+                    <p>{% trans "Bonjour" %} {{ guest.get_full_name }},</p>
+                    <p>{% trans "Vous êtes attendu(e) à la table" %} <strong>{{ table_number }}</strong>.</p>
+                    <p>{% trans "Profitez de la cérémonie." %}</p>
+                    <a href="{% url 'events:event_list' %}" class="btn btn-light mt-3">{% trans "Terminer" %}</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

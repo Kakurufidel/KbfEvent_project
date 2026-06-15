@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Scan d'invitation" %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3>{% trans "Validation d'accès" %}</h3>
+                </div>
+                <div class="card-body">
+                    {% if already_checked_in %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> {{ message }}
+                        </div>
+                        <p>{% trans "L'invité a déjà été enregistré. Veuillez vérifier." %}</p>
+                    {% else %}
+                        <p><strong>{% trans "Invité :" %}</strong> {{ guest.get_full_name }}</p>
+                        <p><strong>{% trans "Événement :" %}</strong> {{ guest.event.name }}</p>
+                        <p><strong>{% trans "Table assignée :" %}</strong> 
+                            {% if guest.table %}{{ guest.table.number }}{% else %}{% trans "Non définie" %}{% endif %}
+                        </p>
+                        <form method="post">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-lg w-100">
+                                <i class="fas fa-check-circle"></i> {% trans "Valider l'entrée" %}
+                            </button>
+                        </form>
+                    {% endif %}
+                    <a href="{% url 'events:event_list' %}" class="btn btn-secondary mt-3">{% trans "Retour" %}</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
