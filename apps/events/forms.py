@@ -1,5 +1,5 @@
 from django import forms
-from .models import Event
+from .models import Event,Table
 
 
 class EventForm(forms.ModelForm):
@@ -83,3 +83,14 @@ class EventForm(forms.ModelForm):
         if commit:
             instance.save()
         return instance
+
+
+class TableForm(forms.ModelForm):
+    class Meta:
+        model = Table
+        fields = ['number', 'name', 'capacity']
+        widgets = {
+            'number': forms.TextInput(attrs={'class': 'form-control'}),
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'capacity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+        }

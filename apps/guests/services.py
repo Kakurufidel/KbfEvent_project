@@ -228,3 +228,30 @@ def send_reminders_for_event(event, days_before=7):
             logger.error(f"Erreur rappel pour {guest.email}: {str(e)}")
     
     return sent_count
+
+class TableAssignmentService:
+    def __init__(self, event):
+        self.event = event
+
+    def auto_assign_all(self):
+        """Attribue automatiquement les invités (will_attend=True) aux tables en équilibrant les capacités."""
+        tables = list(self.event.tables.all().order_by('number'))
+        if not tables:
+            return False
+
+        guests = list(self.event.responses.filter(will_attend=True, table__isnull=True))
+        total_capacity = sum(t.capacity for t in tables)
+        if len(guests) > total_capacity:
+            # Option : notifier l'organisateur
+            pass
+
+        # Répartir les invités sur les tables (algorithme simple : remplir table par table)
+        idx = 0
+        for guest in guests:
+            # Chercher la première table avec de la place
+            for table in tables:
+                if table.guests.count() < table.capacity:
+                    guest.table = table
+                    guest.save()
+                    break
+        return True

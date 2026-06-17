@@ -12,6 +12,9 @@ from django.views.generic import TemplateView
 from .forms import EventForm
 from apps.guests.forms import RSVPForm
 from .models import Event, EventCollaborator
+from django.urls import reverse_lazy
+from .models import Table
+from .forms import TableForm
 
 
 
@@ -240,3 +243,41 @@ class RSVPFormView(FormView):
         
         messages.success(self.request, _('Merci ! Votre réponse a bien été enregistrée.'))
         return super().form_valid(form)
+
+class TableListView(LoginRequiredMixin, ListView):
+    model = Table
+    template_name = 'events/table_list.html'
+    context_object_name = 'tables'
+
+    def get_queryset(self):
+        return Table.objects.filter(event_id=self.kwargs['event_id'])
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['event'] = get_object_or_404(Event, id=self.kwargs['event_id'], main_organizer=self.request.user)
+        return context
+
+class TableCreateView(LoginRequiredMixin, CreateView):
+    model = Table
+    form_class = TableForm
+    template_name = 'events/table_form.html'
+
+    def form_valid(self, form):
+        form.instance.event_id = self.kwargs['event_id']
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('events:table_list', kwargs={'event_id': self.kwargs['event_id']})
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['event'] = get_object_or_404(Event, id=self.kwargs['event_id'], main_organizer=self.request.user)
+        return context
+    
+class AutoAssignTablesView(LoginRequiredMixin, View):
+    def post(self, request, event_id):
+        event = get_object_or_404(Event, id=event_id, main_organizer=request.user)
+        service = TableAssignmentService(event)
+        service.auto_assign_all()
+        messages.success(request, "Les tables ont été attribuées automatiquement.")
+        return redirect('events:event_detail', event_id=event.id)

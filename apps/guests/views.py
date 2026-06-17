@@ -4,9 +4,10 @@ import logging
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render, redirect
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.utils.translation import gettext as _
 from django.views import View
+from django.utils import timezone
 from django.views.generic import ListView, DetailView, TemplateView
 from django.urls import reverse
 
@@ -272,3 +273,79 @@ class InvitationPDFView(View):
         response = HttpResponse(pdf, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="invitation_{guest_response.event.slug}.pdf"'
         return response
+    
+    
+
+
+class CheckInView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Vue pour scanner le QR code (ou saisir le code court) et valider l'arrivée d'un invité.
+    Accessible uniquement aux organisateurs et co-organisateurs avec can_scan=True.
+    """
+    template_name = 'guests/checkin.html'
+    
+    def test_func(self):
+        # Vérifie que l'utilisateur connecté a le droit de scanner pour cet événement
+        # Pour simplifier, on vérifiera dans get() et post() car l'événement n'est pas connu avant.
+        # On fera la vérification dans dispatch() ou directement dans les méthodes.
+        return True  # On fera la vérification manuellement
+    
+    def dispatch(self, request, *args, **kwargs):
+        # On récupère le token (UUID ou short_code)
+        token = kwargs.get('token')
+        # Tentative de trouver la GuestResponse
+        try:
+            # Si token est un UUID valide
+            import uuid
+            uuid_obj = uuid.UUID(token)
+            self.guest_response = get_object_or_404(GuestResponse, invitation_token=uuid_obj)
+        except ValueError:
+            # Sinon, c'est un short_code
+            self.guest_response = get_object_or_404(GuestResponse, short_code=token)
+        
+        # Vérifier les droits de l'utilisateur
+        user = request.user
+        event = self.guest_response.event
+        is_organizer = (event.main_organizer == user)
+        is_collaborator_with_scan = event.collaborators.filter(user=user, can_scan=True).exists()
+        
+        if not (is_organizer or is_collaborator_with_scan):
+            messages.error(request, _("Vous n'avez pas l'autorisation de scanner les invitations pour cet événement."))
+            return redirect('events:event_list')
+        
+        return super().dispatch(request, *args, **kwargs)
+    
+    def get(self, request, *args, **kwargs):
+        guest = self.guest_response
+        if guest.checkin_time:
+            return render(request, self.template_name, {
+                'guest': guest,
+                'already_checked_in': True,
+                'message': _("Cette invitation a déjà été scannée à {}.").format(guest.checkin_time.strftime("%H:%M:%S"))
+            })
+        # Afficher le formulaire de confirmation (ou directement la page avec les infos)
+        return render(request, self.template_name, {
+            'guest': guest,
+            'already_checked_in': False,
+        })
+    
+    def post(self, request, *args, **kwargs):
+        guest = self.guest_response
+        if guest.checkin_time:
+            messages.warning(request, _("Cette invitation a déjà été utilisée."))
+            return redirect('guests:checkin', token=kwargs.get('token'))
+        
+        # Enregistrer le check-in
+        guest.checkin_time = timezone.now()
+        guest.save(update_fields=['checkin_time'])
+        
+        # Afficher la table assignée (si elle existe)
+        table_number = guest.table.number if guest.table else _("non assignée")
+        
+        messages.success(request, _("Bienvenue {} ! Vous êtes à la table {}.").format(guest.get_full_name(), table_number))
+        
+        # Optionnel : rediriger vers une page de confirmation
+        return render(request, 'guests/checkin_success.html', {
+            'guest': guest,
+            'table_number': table_number,
+        })

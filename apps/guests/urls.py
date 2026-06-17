@@ -11,7 +11,8 @@ urlpatterns = [
     # Gestion des invités (organisateur)
     path('event/<int:event_id>/', views.GuestListView.as_view(), name='guest_list'),
     path('event/<int:event_id>/import/', views.BulkImportGuestsView.as_view(), name='bulk_import'),
-    
+    path('checkin/<str:token>/', views.CheckInView.as_view(), name='checkin'),
+
     # Exports
     path('export/csv/<int:event_id>/', views.ExportGuestsCSVView.as_view(), name='export_csv'),
     path('export/excel/<int:event_id>/', views.ExportGuestsExcelView.as_view(), name='export_excel'),
