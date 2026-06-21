@@ -4,126 +4,177 @@
 {% block title %}Accueil - KbfEven{% endblock %}
 
 {% block content %}
-
-<!-- Hero section -->
-<section class="text-center py-12 md:py-20">
-    <div class="max-w-4xl mx-auto">
-        <h1 class="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6">
-            <span class="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
-                Planifiez. Invitez. Suivez.
-            </span>
-            <br>
-            <span class="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-400">
-                Réussissez.
-            </span>
-        </h1>
-        <p class="text-lg md:text-xl text-gray-300 mb-4">
-            Tout ce dont vous avez besoin pour organiser un événement professionnel ou privé.
-        </p>
-        <p class="text-gray-400 max-w-2xl mx-auto">
-            Gérez vos invités, suivez les réponses, estimez les besoins en boissons et accompagnements.
-        </p>
-        <div class="mt-8 flex flex-wrap justify-center gap-4">
-            <a href="{% url 'authentication:register' %}" class="btn-gradient px-6 md:px-8 py-3 rounded-full text-base md:text-lg font-semibold">
-                <i class="fas fa-rocket mr-2"></i>Commencer
-            </a>
-            <a href="#about" class="btn-outline px-6 md:px-8 py-3 rounded-full text-base md:text-lg font-semibold">
-                <i class="fas fa-chevron-down mr-2"></i>En savoir plus
-            </a>
-        </div>
+<!-- Hero -->
+<section class="relative overflow-hidden py-16 md:py-24 -mt-6 -mx-4 rounded-b-[3rem] bg-gradient-to-br from-[#0f0c29] via-[#302b63] to-[#24243e]">
+  <div class="relative z-10 max-w-6xl mx-auto px-6 text-center">
+    <h1 class="text-4xl sm:text-5xl md:text-6xl font-extrabold leading-tight">
+      <span class="bg-clip-text text-transparent bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4]">
+        Organisez vos événements
+      </span>
+      <br>
+      <span class="text-white">comme un pro</span>
+    </h1>
+    <p class="text-lg md:text-xl text-gray-300 max-w-2xl mx-auto mt-4">
+      Mariage, anniversaire, séminaire… KbfEven centralise tout : invitations, RSVP, check-in, tables et dépenses. 
+      <span class="block text-gray-400 text-base mt-1">Clair, rapide, et sans surprise.</span>
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-4">
+      <a href="{% url 'authentication:register' %}" class="btn-primary text-lg px-8 py-3 shadow-lg shadow-purple-500/30">
+        <i class="fas fa-rocket mr-2"></i>Commencer maintenant
+      </a>
+      <a href="#features" class="btn-outline text-lg px-8 py-3">
+        <i class="fas fa-chevron-down mr-2"></i>Découvrir
+      </a>
     </div>
+    <!-- Mini stats -->
+    <div class="mt-10 flex flex-wrap justify-center gap-6 text-sm text-gray-400">
+      <span><i class="fas fa-check-circle text-[#06B6D4] mr-1.5"></i> Invités illimités</span>
+      <span><i class="fas fa-check-circle text-[#06B6D4] mr-1.5"></i> QR code & check‑in</span>
+      <span><i class="fas fa-check-circle text-[#06B6D4] mr-1.5"></i> Suivi des dépenses</span>
+    </div>
+  </div>
 </section>
 
-<!-- Section À propos -->
-<section id="about" class="py-12 md:py-20 scroll-mt-20">
+<!-- Pourquoi nous (3 blocs) -->
+<section class="py-16">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold">Pourquoi choisir KbfEven ?</h2>
+      <div class="w-20 h-1 bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] mx-auto mt-3 rounded-full"></div>
+    </div>
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="glass-card p-6 text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mb-4">
+          <i class="fas fa-calendar-plus text-3xl text-[#8B5CF6]"></i>
+        </div>
+        <h3 class="text-xl font-semibold">1. Créez en un clic</h3>
+        <p class="text-gray-400 text-sm mt-2">Mariage, anniversaire, dot, diplôme… Un formulaire simple pour lancer votre événement.</p>
+      </div>
+      <div class="glass-card p-6 text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-[#06B6D4]/20 flex items-center justify-center mb-4">
+          <i class="fas fa-users text-3xl text-[#06B6D4]"></i>
+        </div>
+        <h3 class="text-xl font-semibold">2. Gérez vos invités</h3>
+        <p class="text-gray-400 text-sm mt-2">Invitations personnalisées, RSVP automatique, suivi en temps réel.</p>
+      </div>
+      <div class="glass-card p-6 text-center">
+        <div class="w-16 h-16 mx-auto rounded-full bg-[#8B5CF6]/20 flex items-center justify-center mb-4">
+          <i class="fas fa-chart-pie text-3xl text-[#8B5CF6]"></i>
+        </div>
+        <h3 class="text-xl font-semibold">3. Tout au même endroit</h3>
+        <p class="text-gray-400 text-sm mt-2">Budget, planning, tables, check-in, rapports… une seule interface.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Fonctionnalités -->
+<section id="features" class="py-16 scroll-mt-20">
+  <div class="max-w-6xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold">Des outils puissants, simples à utiliser</h2>
+      <div class="w-20 h-1 bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] mx-auto mt-3 rounded-full"></div>
+    </div>
+    <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div class="glass-card p-6 hover:scale-[1.02] transition-all">
+        <i class="fas fa-qrcode text-3xl text-[#06B6D4] mb-3"></i>
+        <h3 class="text-lg font-semibold">Check-in par QR code</h3>
+        <p class="text-gray-400 text-sm">Scannez à l’entrée, validez instantanément, et assignez la table.</p>
+      </div>
+      <div class="glass-card p-6 hover:scale-[1.02] transition-all">
+        <i class="fas fa-chair text-3xl text-[#8B5CF6] mb-3"></i>
+        <h3 class="text-lg font-semibold">Tables automatiques</h3>
+        <p class="text-gray-400 text-sm">Répartissez les invités en un clic, ou gérez manuellement.</p>
+      </div>
+      <div class="glass-card p-6 hover:scale-[1.02] transition-all">
+        <i class="fas fa-wine-bottle text-3xl text-[#06B6D4] mb-3"></i>
+        <h3 class="text-lg font-semibold">Estimation des dépenses</h3>
+        <p class="text-gray-400 text-sm">Calculez les quantités de boissons selon les choix des invités.</p>
+      </div>
+      <div class="glass-card p-6 hover:scale-[1.02] transition-all">
+        <i class="fas fa-file-export text-3xl text-[#8B5CF6] mb-3"></i>
+        <h3 class="text-lg font-semibold">Exports PDF &amp; Excel</h3>
+        <p class="text-gray-400 text-sm">Récupérez vos listes, statistiques et rapports en deux clics.</p>
+      </div>
+      <div class="glass-card p-6 hover:scale-[1.02] transition-all">
+        <i class="fas fa-users-cog text-3xl text-[#06B6D4] mb-3"></i>
+        <h3 class="text-lg font-semibold">Co‑organisateurs</h3>
+        <p class="text-gray-400 text-sm">Invitez des collaborateurs avec des droits spécifiques.</p>
+      </div>
+      <div class="glass-card p-6 hover:scale-[1.02] transition-all">
+        <i class="fas fa-credit-card text-3xl text-[#8B5CF6] mb-3"></i>
+        <h3 class="text-lg font-semibold">Paiement intégré</h3>
+        <p class="text-gray-400 text-sm">Modules payants à la carte (prochainement).</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Tarifs -->
+<section id="pricing" class="py-16 scroll-mt-20">
+  <div class="max-w-5xl mx-auto px-4">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold">Des offres adaptées à vos besoins</h2>
+      <div class="w-20 h-1 bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] mx-auto mt-3 rounded-full"></div>
+    </div>
+    <div class="grid md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+      <div class="glass-card p-6 text-center">
+        <h3 class="text-xl font-bold">Basic</h3>
+        <p class="text-4xl font-extrabold text-[#8B5CF6] mt-2">25 $</p>
+        <ul class="text-sm text-gray-300 space-y-2 mt-4">
+          <li><i class="fas fa-check text-[#06B6D4] mr-2"></i> Jusqu’à 400 invités</li>
+          <li><i class="fas fa-check text-[#06B6D4] mr-2"></i> 5 co‑organisateurs</li>
+          <li><i class="fas fa-check text-[#06B6D4] mr-2"></i> Toutes les fonctionnalités</li>
+        </ul>
+        <a href="{% url 'authentication:register' %}" class="btn-primary mt-6">Choisir</a>
+      </div>
+      <div class="glass-card p-6 text-center border border-[#8B5CF6]/30">
+        <div class="inline-block bg-[#8B5CF6]/20 text-[#8B5CF6] text-xs px-3 py-1 rounded-full mb-2">Recommandé</div>
+        <h3 class="text-xl font-bold">Premium</h3>
+        <p class="text-4xl font-extrabold text-[#06B6D4] mt-2">40 $</p>
+        <ul class="text-sm text-gray-300 space-y-2 mt-4">
+          <li><i class="fas fa-check text-[#06B6D4] mr-2"></i> Invités illimités</li>
+          <li><i class="fas fa-check text-[#06B6D4] mr-2"></i> 10 co‑organisateurs</li>
+          <li><i class="fas fa-check text-[#06B6D4] mr-2"></i> Support prioritaire</li>
+        </ul>
+        <a href="{% url 'authentication:register' %}" class="btn-primary mt-6">Choisir</a>
+      </div>
+    </div>
+    <p class="text-center text-gray-400 text-sm mt-6">* Paiement unique par événement. Pas d’abonnement.</p>
+  </div>
+</section>
+
+<!-- Contact -->
+<section id="contact" class="py-16 scroll-mt-20">
+  <div class="max-w-2xl mx-auto px-4">
     <div class="text-center mb-10">
-        <h2 class="text-3xl md:text-4xl font-bold">À propos de KbfEven</h2>
-        <div class="w-20 h-1 bg-gradient-to-r from-purple-400 to-cyan-400 mx-auto mt-4 rounded-full"></div>
+      <h2 class="text-3xl font-bold">Une question ?</h2>
+      <div class="w-20 h-1 bg-gradient-to-r from-[#8B5CF6] to-[#06B6D4] mx-auto mt-3 rounded-full"></div>
     </div>
-    <div class="grid md:grid-cols-2 gap-8 max-w-5xl mx-auto">
-        <div class="glass-card p-6">
-            <i class="fas fa-bullseye text-4xl text-purple-400 mb-4"></i>
-            <h3 class="text-xl font-semibold mb-2">Notre mission</h3>
-            <p class="text-gray-400">Simplifier l'organisation d'événements en offrant une plateforme intuitive, gratuite et accessible à tous.</p>
+    <div class="glass-card p-6 md:p-8">
+      <form method="post" action="{% url 'authentication:contact' %}">
+        {% csrf_token %}
+        <div class="grid md:grid-cols-2 gap-4">
+          <input type="text" name="name" placeholder="Votre nom" required class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:border-[#8B5CF6] focus:outline-none">
+          <input type="email" name="email" placeholder="Votre email" required class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:border-[#8B5CF6] focus:outline-none">
         </div>
-        <div class="glass-card p-6">
-            <i class="fas fa-heart text-4xl text-cyan-400 mb-4"></i>
-            <h3 class="text-xl font-semibold mb-2">Notre engagement</h3>
-            <p class="text-gray-400">100% gratuit, sans limite d'invités, avec un support réactif et des fonctionnalités évolutives.</p>
-        </div>
+        <textarea name="message" rows="4" placeholder="Votre message" required class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:border-[#8B5CF6] focus:outline-none mt-4"></textarea>
+        <button type="submit" class="btn-primary w-full justify-center mt-4"><i class="fas fa-paper-plane mr-2"></i>Envoyer</button>
+      </form>
+      <div class="text-center mt-6 text-gray-400 text-sm">
+        <p><i class="fas fa-envelope mr-2"></i> kakurukalinda@gmail.com</p>
+        <p><i class="fas fa-phone mr-2"></i> +243 975 584 501</p>
+      </div>
     </div>
+  </div>
 </section>
 
-<!-- Section Nos événements -->
-<section id="events" class="py-12 md:py-20 scroll-mt-20">
-    <div class="text-center mb-10">
-        <h2 class="text-3xl md:text-4xl font-bold">Idéal pour tous vos événements</h2>
-        <div class="w-20 h-1 bg-gradient-to-r from-purple-400 to-cyan-400 mx-auto mt-4 rounded-full"></div>
-    </div>
-    <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 max-w-5xl mx-auto">
-        <div class="glass-card p-4 md:p-5 text-center">
-            <i class="fas fa-ring text-2xl md:text-3xl text-purple-400 mb-2 md:mb-3"></i>
-            <h3 class="font-semibold text-sm md:text-base">Mariage</h3>
-        </div>
-        <div class="glass-card p-4 md:p-5 text-center">
-            <i class="fas fa-birthday-cake text-2xl md:text-3xl text-cyan-400 mb-2 md:mb-3"></i>
-            <h3 class="font-semibold text-sm md:text-base">Anniversaire</h3>
-        </div>
-        <div class="glass-card p-4 md:p-5 text-center">
-            <i class="fas fa-briefcase text-2xl md:text-3xl text-purple-400 mb-2 md:mb-3"></i>
-            <h3 class="font-semibold text-sm md:text-base">Professionnel</h3>
-        </div>
-        <div class="glass-card p-4 md:p-5 text-center">
-            <i class="fas fa-graduation-cap text-2xl md:text-3xl text-cyan-400 mb-2 md:mb-3"></i>
-            <h3 class="font-semibold text-sm md:text-base">Diplôme</h3>
-        </div>
-        <div class="glass-card p-4 md:p-5 text-center">
-            <i class="fas fa-hand-holding-heart text-2xl md:text-3xl text-purple-400 mb-2 md:mb-3"></i>
-            <h3 class="font-semibold text-sm md:text-base">Dote / Fiançailles</h3>
-        </div>
-        <div class="glass-card p-4 md:p-5 text-center">
-            <i class="fas fa-star text-2xl md:text-3xl text-cyan-400 mb-2 md:mb-3"></i>
-            <h3 class="font-semibold text-sm md:text-base">Et bien plus</h3>
-        </div>
-    </div>
-</section>
-
-<!-- Section Contact -->
-<section id="contact" class="py-12 md:py-20 scroll-mt-20">
-    <div class="text-center mb-10">
-        <h2 class="text-3xl md:text-4xl font-bold">Contactez-nous</h2>
-        <div class="w-20 h-1 bg-gradient-to-r from-purple-400 to-cyan-400 mx-auto mt-4 rounded-full"></div>
-    </div>
-    <div class="max-w-2xl mx-auto glass-card p-6 md:p-8">
-        <form method="post" action="{% url 'authentication:contact' %}" id="contact-form">
-            {% csrf_token %}
-            <div class="grid md:grid-cols-2 gap-4 mb-4">
-                <input type="text" name="name" placeholder="Votre nom" required 
-                       class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400">
-                <input type="email" name="email" placeholder="Votre email" required 
-                       class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400">
-            </div>
-            <textarea name="message" rows="4" placeholder="Votre message" required 
-                      class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400 mb-4"></textarea>
-            <button type="submit" class="btn-gradient w-full py-3 rounded-xl font-semibold">
-                <i class="fas fa-paper-plane mr-2"></i>Envoyer
-            </button>
-        </form>
-        <div class="text-center mt-6 text-gray-400 text-sm">
-            <p><i class="fas fa-envelope mr-2"></i> kakurukalinda@gmail.com</p>
-            <p class="mt-1"><i class="fas fa-phone mr-2"></i> +243 975 584 501</p>
-        </div>
-    </div>
-</section>
 <!-- CTA finale -->
 <section class="py-12">
-    <div class="glass-card p-6 md:p-8 max-w-3xl mx-auto text-center">
-        <h2 class="text-2xl md:text-3xl font-bold mb-3">Prêt à simplifier votre organisation ?</h2>
-        <p class="text-gray-300 mb-6">Créez votre premier événement en quelques clics.</p>
-        <a href="{% url 'authentication:register' %}" class="btn-gradient px-6 md:px-8 py-3 rounded-full text-base md:text-lg font-semibold inline-block">
-            <i class="fas fa-calendar-plus mr-2"></i>Créer mon compte
-        </a>
-    </div>
+  <div class="glass-card p-6 md:p-8 max-w-3xl mx-auto text-center">
+    <h2 class="text-2xl md:text-3xl font-bold">Prêt à simplifier votre organisation ?</h2>
+    <p class="text-gray-300 mt-2">Créez votre premier événement en quelques minutes.</p>
+    <a href="{% url 'authentication:register' %}" class="btn-primary mt-6"><i class="fas fa-calendar-plus mr-2"></i>Commencer maintenant</a>
+  </div>
 </section>
-
 {% endblock %}

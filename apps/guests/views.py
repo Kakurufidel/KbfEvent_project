@@ -1,4 +1,3 @@
-# apps/guests/views.py
 import csv
 import logging
 from django.http import HttpResponse
@@ -7,9 +6,13 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.utils.translation import gettext as _
 from django.views import View
+from django.views.generic import ListView, TemplateView, FormView, CreateView, DetailView, ListView, UpdateView, View, FormView, DeleteView
 from django.utils import timezone
-from django.views.generic import ListView, DetailView, TemplateView
 from django.urls import reverse
+from django.conf import settings
+from django.urls import reverse, reverse_lazy
+from django.utils.translation import gettext as _
+
 
 from apps.events.models import Event
 from .models import GuestResponse, InvitedGuest
@@ -19,108 +22,34 @@ from .services import import_guests_from_excel, generate_invitation_pdf
 logger = logging.getLogger(__name__)
 
 
-class RSVPView(View):
-    """Vue publique pour répondre à une invitation (lien unique)"""
-    
-    template_name = 'guests/rsvp.html'
-    thanks_template = 'guests/rsvp_thanks.html'
-    already_template = 'guests/rsvp_already.html'
-
-    def get(self, request, token):
-        guest = get_object_or_404(GuestResponse, invitation_token=token)
-        
-        if guest.will_attend is not None and guest.submitted_at:
-            # Déjà répondu
-            return render(request, self.already_template, {
-                'guest': guest,
-                'event': guest.event
-            })
-        
-        form = RSVPForm(event=guest.event, instance=guest)
-        return render(request, self.template_name, {
-            'form': form,
-            'guest': guest,
-            'event': guest.event,
-        })
-
-    def post(self, request, token):
-        guest = get_object_or_404(GuestResponse, invitation_token=token)
-        
-        if guest.will_attend is not None and guest.submitted_at:
-            return render(request, self.already_template, {
-                'guest': guest,
-                'event': guest.event
-            })
-        
-        form = RSVPForm(request.POST, event=guest.event, instance=guest)
-        
-        if form.is_valid():
-            response = form.save(commit=False)
-            response.ip_address = request.META.get('REMOTE_ADDR')
-            response.save()
-            
-            if response.will_attend:
-                messages.success(request, _('Merci ! Votre présence a été confirmée. Vous allez recevoir un email avec tous les détails.'))
-            else:
-                messages.info(request, _('Nous sommes désolés que vous ne puissiez pas venir. Merci de nous avoir prévenus.'))
-            
-            return render(request, self.thanks_template, {
-                'guest': response,
-                'will_attend': response.will_attend,
-                'event': guest.event
-            })
-        
-        return render(request, self.template_name, {
-            'form': form,
-            'guest': guest,
-            'event': guest.event,
-        })
-
-
 class GuestListView(LoginRequiredMixin, ListView):
-    """Liste des invités pour un événement"""
     template_name = 'guests/guest_list.html'
     context_object_name = 'guests'
-    paginate_by = 50
+
+    def get_paginate_by(self, queryset):
+        # 1. Essayer de lire depuis les paramètres GET
+        per_page = self.request.GET.get('per_page')
+        if per_page and per_page.isdigit():
+            per_page = int(per_page)
+            # Limiter les valeurs possibles pour éviter des abus
+            if per_page in [10, 15, 20, 30, 50, 100]:
+                return per_page
+        # 2. Sinon, utiliser la valeur par défaut depuis settings
+        return getattr(settings, 'GUESTS_PER_PAGE', 20)
 
     def get_queryset(self):
         self.event = get_object_or_404(
-            Event, 
-            id=self.kwargs.get('event_id'), 
+            Event,
+            id=self.kwargs.get('event_id'),
             main_organizer=self.request.user
         )
-        queryset = self.event.responses.all().order_by('-submitted_at')
-        
-        # Filtres
-        status_filter = self.request.GET.get('status', '')
-        verification_filter = self.request.GET.get('verification', '')
-        search_query = self.request.GET.get('q', '')
-        
-        if status_filter == 'attending':
-            queryset = queryset.filter(will_attend=True)
-        elif status_filter == 'not_attending':
-            queryset = queryset.filter(will_attend=False)
-        
-        if verification_filter:
-            queryset = queryset.filter(verification_status=verification_filter)
-        
-        if search_query:
-            queryset = queryset.filter(
-                models.Q(first_name__icontains=search_query) |
-                models.Q(last_name__icontains=search_query) |
-                models.Q(email__icontains=search_query)
-            )
-        
-        return queryset
+        return self.event.responses.all().order_by('-submitted_at')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['event'] = self.event
-        context['status_filter'] = self.request.GET.get('status', '')
-        context['verification_filter'] = self.request.GET.get('verification', '')
-        context['search_query'] = self.request.GET.get('q', '')
-        
-        # Statistiques
+        context['current_per_page'] = self.get_paginate_by(self.get_queryset())
+        # Statistiques (inchangées)
         responses = self.event.responses
         context['stats'] = {
             'total': responses.count(),
@@ -128,9 +57,7 @@ class GuestListView(LoginRequiredMixin, ListView):
             'not_attending': responses.filter(will_attend=False).count(),
             'verified': responses.filter(verification_status='verified').count(),
             'unverified': responses.filter(verification_status='unverified').count(),
-            'pending': self.event.invited_guests.count() - responses.filter(verification_status='verified').count(),
         }
-        
         return context
 
 
@@ -143,7 +70,7 @@ class ExportGuestsCSVView(LoginRequiredMixin, View):
         
         response = HttpResponse(content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="responses_{event.id}.csv"'
-        response.write('\ufeff')  # BOM pour UTF-8
+        response.write('\ufeff')
         
         writer = csv.writer(response)
         writer.writerow([
@@ -228,6 +155,11 @@ class ExportGuestsExcelView(LoginRequiredMixin, View):
         return response
 
 
+class RSVPThanksView(TemplateView):
+    """Page de remerciement après RSVP"""
+    template_name = 'guests/rsvp_thanks.html'
+
+
 class BulkImportGuestsView(LoginRequiredMixin, View):
     """Import Excel d'invités pré-enregistrés"""
     template_name = 'guests/bulk_import.html'
@@ -263,58 +195,41 @@ class BulkImportGuestsView(LoginRequiredMixin, View):
         })
 
 
-class InvitationPDFView(View):
-    def get(self, request, token):
-        guest_response = get_object_or_404(GuestResponse, invitation_token=token)
-        pdf = generate_invitation_pdf(guest_response)
-        if pdf is None:
-            messages.error(request, _("Le PDF n'a pas pu être généré (bibliothèque manquante)."))
-            return redirect('guests:rsvp', token=token)
-        response = HttpResponse(pdf, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="invitation_{guest_response.event.slug}.pdf"'
-        return response
-    
-    
-
-
+# ========== CHECK-IN ==========
 class CheckInView(LoginRequiredMixin, UserPassesTestMixin, View):
     """
     Vue pour scanner le QR code (ou saisir le code court) et valider l'arrivée d'un invité.
     Accessible uniquement aux organisateurs et co-organisateurs avec can_scan=True.
     """
     template_name = 'guests/checkin.html'
-    
+    success_template = 'guests/checkin_success.html'
+
     def test_func(self):
-        # Vérifie que l'utilisateur connecté a le droit de scanner pour cet événement
-        # Pour simplifier, on vérifiera dans get() et post() car l'événement n'est pas connu avant.
-        # On fera la vérification dans dispatch() ou directement dans les méthodes.
-        return True  # On fera la vérification manuellement
-    
+        # Vérification des droits : on le fait dans dispatch pour avoir accès à l'événement
+        return True  # On le fait manuellement dans dispatch
+
     def dispatch(self, request, *args, **kwargs):
-        # On récupère le token (UUID ou short_code)
         token = kwargs.get('token')
-        # Tentative de trouver la GuestResponse
+        # Tentative de trouver la GuestResponse via le token (UUID ou short_code)
         try:
-            # Si token est un UUID valide
             import uuid
             uuid_obj = uuid.UUID(token)
             self.guest_response = get_object_or_404(GuestResponse, invitation_token=uuid_obj)
         except ValueError:
-            # Sinon, c'est un short_code
             self.guest_response = get_object_or_404(GuestResponse, short_code=token)
-        
-        # Vérifier les droits de l'utilisateur
+
+        # Vérification des droits
         user = request.user
         event = self.guest_response.event
         is_organizer = (event.main_organizer == user)
         is_collaborator_with_scan = event.collaborators.filter(user=user, can_scan=True).exists()
-        
+
         if not (is_organizer or is_collaborator_with_scan):
             messages.error(request, _("Vous n'avez pas l'autorisation de scanner les invitations pour cet événement."))
             return redirect('events:event_list')
-        
+
         return super().dispatch(request, *args, **kwargs)
-    
+
     def get(self, request, *args, **kwargs):
         guest = self.guest_response
         if guest.checkin_time:
@@ -323,29 +238,150 @@ class CheckInView(LoginRequiredMixin, UserPassesTestMixin, View):
                 'already_checked_in': True,
                 'message': _("Cette invitation a déjà été scannée à {}.").format(guest.checkin_time.strftime("%H:%M:%S"))
             })
-        # Afficher le formulaire de confirmation (ou directement la page avec les infos)
+        # Afficher le formulaire de confirmation
         return render(request, self.template_name, {
             'guest': guest,
             'already_checked_in': False,
         })
-    
+
     def post(self, request, *args, **kwargs):
         guest = self.guest_response
         if guest.checkin_time:
             messages.warning(request, _("Cette invitation a déjà été utilisée."))
             return redirect('guests:checkin', token=kwargs.get('token'))
-        
+
         # Enregistrer le check-in
         guest.checkin_time = timezone.now()
         guest.save(update_fields=['checkin_time'])
-        
-        # Afficher la table assignée (si elle existe)
+
         table_number = guest.table.number if guest.table else _("non assignée")
-        
+
         messages.success(request, _("Bienvenue {} ! Vous êtes à la table {}.").format(guest.get_full_name(), table_number))
-        
-        # Optionnel : rediriger vers une page de confirmation
-        return render(request, 'guests/checkin_success.html', {
+
+        return render(request, self.success_template, {
             'guest': guest,
             'table_number': table_number,
         })
+
+
+# ========== INVITATION PDF ==========
+class InvitationPDFView(View):
+    """Génère l'invitation électronique en PDF"""
+    
+    def get(self, request, token):
+        guest_response = get_object_or_404(GuestResponse, invitation_token=token)
+        pdf = generate_invitation_pdf(guest_response)
+        
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="invitation_{guest_response.event.slug}.pdf"'
+        return response
+    
+
+class AddInvitedGuestView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
+    model = InvitedGuest
+    form_class = InvitedGuestForm
+    template_name = 'guests/add_guest.html'  # Assurez-vous que ce template existe
+
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['event'] = self.event
+        return context
+
+    def form_valid(self, form):
+        form.instance.event = self.event
+        form.instance.created_by = self.request.user
+        messages.success(self.request, _('Invité ajouté avec succès.'))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('guests:invited_list', kwargs={'event_id': self.event.id})
+# ========== INVITÉS PRÉ-ENREGISTRÉS ==========
+
+class InvitedGuestListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
+    """
+    Liste des invités pré-enregistrés (InvitedGuest) pour un événement.
+    Accessible uniquement à l'organisateur principal.
+    """
+    model = InvitedGuest
+    template_name = 'guests/invited_guest_list.html'
+    context_object_name = 'invited_guests'
+    paginate_by = 20
+
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get_queryset(self):
+        return InvitedGuest.objects.filter(event=self.event).order_by('last_name', 'first_name')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['event'] = self.event
+        context['total'] = self.get_queryset().count()
+        return context
+
+
+class ExportInvitedCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Export CSV de la liste des invités pré-enregistrés.
+    """
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get(self, request, event_id):
+        guests = InvitedGuest.objects.filter(event=self.event).order_by('last_name', 'first_name')
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="invited_guests_{self.event.id}.csv"'
+        response.write('\ufeff')
+        writer = csv.writer(response)
+        writer.writerow(['Prénom', 'Nom', 'Postnom', 'Email', 'Téléphone', 'Table'])
+        for g in guests:
+            writer.writerow([
+                g.first_name,
+                g.last_name,
+                g.middle_name or '',
+                g.email or '',
+                g.phone or '',
+                g.table.number if g.table else ''
+            ])
+        return response
+
+
+class ExportInvitedExcelView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """
+    Export Excel de la liste des invités pré-enregistrés.
+    """
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get(self, request, event_id):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font
+
+        guests = InvitedGuest.objects.filter(event=self.event).order_by('last_name', 'first_name')
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Invités"
+        headers = ['Prénom', 'Nom', 'Postnom', 'Email', 'Téléphone', 'Table']
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True)
+        for row, g in enumerate(guests, 2):
+            ws.cell(row=row, column=1, value=g.first_name)
+            ws.cell(row=row, column=2, value=g.last_name)
+            ws.cell(row=row, column=3, value=g.middle_name or '')
+            ws.cell(row=row, column=4, value=g.email or '')
+            ws.cell(row=row, column=5, value=g.phone or '')
+            ws.cell(row=row, column=6, value=g.table.number if g.table else '')
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="invited_guests_{self.event.id}.xlsx"'
+        wb.save(response)
+        return response

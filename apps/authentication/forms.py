@@ -14,6 +14,16 @@ class LoginForm(AuthenticationForm):
         'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400',
         'placeholder': '••••••••'
     }))
+    coorganizer_code = forms.CharField(
+        label=_('Code co-organisateur (optionnel)'),
+        required=False,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400',
+            'placeholder': _('Ex: A3F9Z7')
+        }),
+        help_text=_('Si vous avez été invité comme co-organisateur, entrez le code ici.')
+    )
 
 
 class RegisterForm(UserCreationForm):
@@ -38,6 +48,17 @@ class RegisterForm(UserCreationForm):
         'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400',
         'placeholder': '+225 05 55 55 55'
     }))
+    
+    coorganizer_code = forms.CharField(
+        label=_('Code co-organisateur (optionnel)'),
+        required=False,
+        max_length=6,
+        widget=forms.TextInput(attrs={
+            'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400',
+            'placeholder': _('Ex: A3F9Z7')
+        }),
+        help_text=_('Si vous avez été invité comme co-organisateur, entrez le code ici.')
+    )
     
     class Meta:
         model = User

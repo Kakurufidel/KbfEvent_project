@@ -29,68 +29,103 @@ except ImportError:
 
 
 def import_guests_from_excel(excel_file, event, user):
-    """
-    Importe une liste d'invités depuis un fichier Excel/CSV.
-    """
     import openpyxl
-    
-    result = {
-        'created': 0,
-        'errors': 0,
-        'error_messages': []
-    }
-    
+    from apps.events.models import Table
+
+    result = {'created': 0, 'errors': 0, 'error_messages': []}
+
     try:
         wb = openpyxl.load_workbook(excel_file)
         ws = wb.active
-        
+
+        # Déterminer les colonnes (on suppose que l'en-tête est sur la ligne 1)
+        headers = [cell.value for cell in ws[1] if cell.value]
+        # On cherche les colonnes par nom (flexible)
+        col_map = {}
+        for idx, header in enumerate(headers):
+            if header and isinstance(header, str):
+                header_lower = header.lower().strip()
+                if 'prénom' in header_lower or 'prenom' in header_lower:
+                    col_map['first_name'] = idx
+                elif 'nom' in header_lower and 'post' not in header_lower:
+                    col_map['last_name'] = idx
+                elif 'postnom' in header_lower or 'post-nom' in header_lower:
+                    col_map['middle_name'] = idx
+                elif 'email' in header_lower:
+                    col_map['email'] = idx
+                elif 'téléphone' in header_lower or 'phone' in header_lower:
+                    col_map['phone'] = idx
+                elif 'table' in header_lower:
+                    col_map['table'] = idx
+
+        # Si on n'a pas de colonne table, on ignore
+        has_table_col = 'table' in col_map
+
         for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             if not row or not row[0]:
                 continue
-            
-            first_name = str(row[0]).strip() if row[0] else ''
-            last_name = str(row[1]).strip() if row[1] else ''
-            middle_name = str(row[2]).strip() if len(row) > 2 and row[2] else ''
-            email = str(row[3]).strip() if len(row) > 3 and row[3] else ''
-            phone = str(row[4]).strip() if len(row) > 4 and row[4] else ''
-            
+
+            def get_cell(col_name):
+                idx = col_map.get(col_name)
+                if idx is not None and idx < len(row):
+                    val = row[idx]
+                    return str(val).strip() if val else ''
+                return ''
+
+            first_name = get_cell('first_name')
+            last_name = get_cell('last_name')
+            middle_name = get_cell('middle_name')
+            email = get_cell('email') or None
+            phone = get_cell('phone')
+            table_name = get_cell('table') if has_table_col else ''
+
             if not first_name or not last_name:
                 result['errors'] += 1
                 result['error_messages'].append(f"Ligne {row_idx}: Prénom ou nom manquant")
                 continue
-            
+
+            # Gérer la table : la créer si elle n'existe pas
+            table = None
+            if table_name:
+                table, _ = Table.objects.get_or_create(
+                    event=event,
+                    number=table_name,
+                    defaults={'name': f"Table {table_name}", 'capacity': 10}  # capacité par défaut
+                )
+
             try:
                 invited_guest, created = InvitedGuest.objects.get_or_create(
                     event=event,
-                    email=email if email else None,
+                    email=email,
                     defaults={
                         'first_name': first_name,
                         'last_name': last_name,
                         'middle_name': middle_name,
                         'phone': phone,
                         'created_by': user,
+                        'table': table,  # assignation
                     }
                 )
-                if created:
-                    result['created'] += 1
-                else:
+                if not created:
+                    # Mise à jour
                     invited_guest.first_name = first_name
                     invited_guest.last_name = last_name
                     invited_guest.middle_name = middle_name
                     invited_guest.phone = phone
+                    invited_guest.table = table
                     invited_guest.save()
+                    result['updated'] += 1
+                else:
                     result['created'] += 1
             except Exception as e:
                 result['errors'] += 1
                 result['error_messages'].append(f"Ligne {row_idx}: {str(e)}")
-    
+
     except Exception as e:
-        logger.error(f"Erreur import Excel: {str(e)}")
         result['errors'] += 1
         result['error_messages'].append(f"Erreur lecture fichier: {str(e)}")
-    
-    return result
 
+    return result
 
 def generate_invitation_pdf(guest_response):
     """
@@ -234,21 +269,14 @@ class TableAssignmentService:
         self.event = event
 
     def auto_assign_all(self):
-        """Attribue automatiquement les invités (will_attend=True) aux tables en équilibrant les capacités."""
         tables = list(self.event.tables.all().order_by('number'))
         if not tables:
             return False
-
+        # Récupérer les invités qui n'ont pas encore de table
         guests = list(self.event.responses.filter(will_attend=True, table__isnull=True))
-        total_capacity = sum(t.capacity for t in tables)
-        if len(guests) > total_capacity:
-            # Option : notifier l'organisateur
-            pass
-
-        # Répartir les invités sur les tables (algorithme simple : remplir table par table)
-        idx = 0
+        if not guests:
+            return False
         for guest in guests:
-            # Chercher la première table avec de la place
             for table in tables:
                 if table.guests.count() < table.capacity:
                     guest.table = table

@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Invités pré-enregistrés" %} - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <!-- En-tête -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+            <a href="{% url 'events:event_detail' event.slug %}" class="text-purple-400 hover:underline text-sm">
+                <i class="fas fa-arrow-left mr-1"></i>{% trans "Retour à l'événement" %}
+            </a>
+            <h1 class="text-2xl md:text-3xl font-bold mt-1">{% trans "Invités pré-enregistrés" %}</h1>
+            <p class="text-gray-400 text-sm">
+                {% blocktrans with total=total %}Total : {{ total }} invités officiels.{% endblocktrans %}
+            </p>
+        </div>
+        <div class="flex gap-2">
+            <a href="{% url 'guests:bulk_import' event.id %}" class="btn-primary text-sm">
+                <i class="fas fa-file-upload mr-1"></i>{% trans "Importer Excel" %}
+            </a>
+            {% comment %} <a href="{% url 'guests:add_guest' event.id %}" class="btn-primary text-sm">
+                <i class="fas fa-user-plus mr-1"></i>{% trans "Ajouter" %}
+            </a> {% endcomment %}
+            <a href="{% url 'guests:export_invited_csv' event.id %}" class="btn-primary text-sm">
+                <i class="fas fa-file-csv mr-1"></i>{% trans "CSV" %}
+            </a>
+            <a href="{% url 'guests:export_invited_excel' event.id %}" class="btn-primary text-sm">
+                <i class="fas fa-file-excel mr-1"></i>{% trans "Excel" %}
+            </a>
+        </div>
+    </div>
+
+    <!-- Tableau -->
+    <div class="glass-card p-4 md:p-6 overflow-x-auto">
+        {% if invited_guests %}
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-white/10 text-left text-gray-400">
+                        <th class="pb-3 pr-2">{% trans "Prénom" %}</th>
+                        <th class="pb-3 pr-2">{% trans "Nom" %}</th>
+                        <th class="pb-3 pr-2">{% trans "Postnom" %}</th>
+                        <th class="pb-3 pr-2">{% trans "Email" %}</th>
+                        <th class="pb-3 pr-2">{% trans "Téléphone" %}</th>
+                        <th class="pb-3 pr-2">{% trans "Table" %}</th>
+                        <th class="pb-3 pr-2">{% trans "Ajouté le" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for guest in invited_guests %}
+                    <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                        <td class="py-3 pr-2">{{ guest.first_name }}</td>
+                        <td class="py-3 pr-2">{{ guest.last_name }}</td>
+                        <td class="py-3 pr-2">{{ guest.middle_name|default:"-" }}</td>
+                        <td class="py-3 pr-2">{{ guest.email|default:"-" }}</td>
+                        <td class="py-3 pr-2">{{ guest.phone|default:"-" }}</td>
+                        <td class="py-3 pr-2">
+                            {% if guest.table %}
+                                <span class="bg-purple-500/20 px-2 py-0.5 rounded-full text-purple-400">{{ guest.table.number }}</span>
+                            {% else %}
+                                <span class="text-gray-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 pr-2">{{ guest.created_at|date:"d/m/Y H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <div class="flex flex-wrap justify-center gap-2 mt-6">
+                {% if page_obj.has_previous %}
+                    <a href="?page=1" class="btn-outline text-sm px-3 py-1">&laquo;</a>
+                    <a href="?page={{ page_obj.previous_page_number }}" class="btn-outline text-sm px-3 py-1">&lsaquo;</a>
+                {% endif %}
+                <span class="text-sm text-gray-400 py-1">
+                    {% blocktrans with current=page_obj.number total=page_obj.paginator.num_pages %}
+                        Page {{ current }} sur {{ total }}
+                    {% endblocktrans %}
+                </span>
+                {% if page_obj.has_next %}
+                    <a href="?page={{ page_obj.next_page_number }}" class="btn-outline text-sm px-3 py-1">&rsaquo;</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}" class="btn-outline text-sm px-3 py-1">&raquo;</a>
+                {% endif %}
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center py-10 text-gray-400">
+                <i class="fas fa-users-slash text-4xl mb-3 block"></i>
+                <p>{% trans "Aucun invité pré-enregistré." %}</p>
+                <p class="text-sm">{% trans "Importez un fichier Excel ou ajoutez manuellement des invités." %}</p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-6 flex flex-wrap gap-3">
+        <a href="{% url 'events:event_detail' event.slug %}" class="btn-outline">
+            <i class="fas fa-arrow-left mr-1"></i>{% trans "Retour à l'événement" %}
+        </a>
+        <a href="{% url 'guests:bulk_import' event.id %}" class="btn-primary">
+            <i class="fas fa-file-upload mr-1"></i>{% trans "Importer Excel" %}
+        </a>
+    </div>
+</div>
+{% endblock %}

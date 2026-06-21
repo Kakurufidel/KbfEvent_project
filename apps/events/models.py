@@ -78,6 +78,14 @@ class Event(models.Model):
     #     related_name='events',
     #     verbose_name=_('demande de paiement'),
     # )
+    # ========== CODE COURT POUR CO-ORGANISATEUR ==========
+    coorganizer_short_code = models.CharField(
+        _('code court co-organisateur'),
+        max_length=6,
+        unique=True,
+        blank=True,
+        null=True,
+    )
     
     class Meta:
         verbose_name = _('événement')
@@ -103,6 +111,8 @@ class Event(models.Model):
                 slug = f"{base_slug}-{counter}"
                 counter += 1
             self.slug = slug
+        if not self.coorganizer_short_code:
+            self.coorganizer_short_code = self.generate_coorganizer_short_code()
         super().save(*args, **kwargs)
     
     def get_rsvp_url(self):
@@ -163,6 +173,16 @@ class Event(models.Model):
         for response in self.responses.filter(verification_status='verified', will_attend=True):
             total += response.number_of_guests
         return total
+    
+    def generate_coorganizer_short_code(self):
+        """Génère un code court unique de 6 caractères (alphanumérique, majuscules)"""
+        import secrets
+        import string
+        alphabet = string.ascii_uppercase + string.digits
+        while True:
+            code = ''.join(secrets.choice(alphabet) for _ in range(6))
+            if not Event.objects.filter(coorganizer_short_code=code).exists():
+                return code
 
 class EventCollaborator(models.Model):
     """

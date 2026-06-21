@@ -6,7 +6,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext as _
-from django.views.generic import CreateView, DetailView, ListView, UpdateView, View, FormView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView, View, FormView, DeleteView
 from django.shortcuts import render
 from django.views.generic import TemplateView
 from .forms import EventForm
@@ -14,7 +14,11 @@ from apps.guests.forms import RSVPForm
 from .models import Event, EventCollaborator
 from django.urls import reverse_lazy
 from .models import Table
+from apps.guests.models import InvitedGuest
+from apps.guests.forms import InvitedGuestForm
 from .forms import TableForm
+from apps.guests.services import TableAssignmentService
+
 
 
 
@@ -101,36 +105,63 @@ class EventUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
 
 class EventDetailView(LoginRequiredMixin, UserPassesTestMixin, DetailView):
-    """Détail d'un événement avec statistiques"""
     model = Event
     template_name = 'events/event_detail.html'
-    slug_url_kwarg = 'slug'
     context_object_name = 'event'
+    slug_url_kwarg = 'slug'
 
     def test_func(self):
         event = self.get_object()
-        return user_can_manage_event(self.request.user, event)
+        # Vérifier que l'utilisateur est organisateur principal ou co-organisateur accepté
+        return (event.main_organizer == self.request.user or
+                event.collaborators.filter(user=self.request.user, status='accepted').exists())
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         event = self.object
-        
-        context['invited_guests'] = event.invited_guests.all()[:10]
-        context['recent_responses'] = event.responses.all()[:10]
-        context['collaborators'] = event.collaborators.filter(status='accepted')
-        context['rsvp_url'] = event.get_rsvp_url()
-        context['coorganizer_url'] = event.get_coorganizer_url()
-        context['stats'] = {
-            'total_invited': event.total_invited_guests(),
-            'total_responses': event.total_responses(),
-            'verified': event.verified_responses(),
-            'unverified': event.unverified_responses(),
-            'attendance_rate': event.attendance_rate(),
-            'will_attend': event.will_attend_count(),
-            'expected_guests': event.total_expected_guests(),
-        }
-        return context
 
+        # Récupérer les réponses
+        responses = event.responses.all()
+
+        # Statistiques de base
+        total_responses = responses.count()
+        will_attend = responses.filter(will_attend=True).count()
+        will_not_attend = responses.filter(will_attend=False).count()
+        verified = responses.filter(verification_status='verified').count()
+        unverified = responses.filter(verification_status='unverified').count()
+        checkins = responses.filter(checkin_time__isnull=False).count()
+
+        # Taux de présence (basé sur les réponses vérifiées)
+        attendance_rate = 0
+        if verified > 0:
+            attendance_rate = round((responses.filter(will_attend=True, verification_status='verified').count() / verified) * 100, 1)
+
+        # Nombre de personnes attendues (somme des number_of_guests pour ceux qui ont dit oui et sont vérifiés)
+        expected_guests = 0
+        for r in responses.filter(will_attend=True, verification_status='verified'):
+            expected_guests += r.number_of_guests
+
+        # Nombre total d'invités pré-enregistrés
+        total_invited = event.invited_guests.count()
+
+        context.update({
+            'stats': {
+                'total_invited': total_invited,
+                'total_responses': total_responses,
+                'will_attend': will_attend,
+                'will_not_attend': will_not_attend,
+                'verified': verified,
+                'unverified': unverified,
+                'checkins': checkins,
+                'attendance_rate': attendance_rate,
+                'expected_guests': expected_guests,
+            },
+            'recent_responses': responses.order_by('-submitted_at')[:10],
+            'collaborators': event.collaborators.filter(status='accepted').select_related('user'),
+            'rsvp_url': event.get_rsvp_url(),
+            'coorganizer_url': event.get_coorganizer_url(),
+        })
+        return context
 
 class EventDeleteView(LoginRequiredMixin, View):
     """Supprimer un événement"""
@@ -201,83 +232,195 @@ class JoinCoOrganizerView(FormView):
         
         return super().get(request, *args, **kwargs)
 
+class JoinCoOrganizerShortCodeView(View):
+    """
+    Redirige vers la page de connexion avec le code court pré-rempli.
+    """
+    def get(self, request, short_code):
+        # Vérifier que l'événement existe
+        try:
+            event = Event.objects.get(coorganizer_short_code=short_code.upper())
+        except Event.DoesNotExist:
+            messages.error(request, _('Code co-organisateur invalide.'))
+            return redirect('events:event_list')
+        
+        # Rediriger vers la page de connexion avec le code en paramètre GET
+        login_url = reverse('authentication:login')
+        return redirect(f'{login_url}?coorganizer_code={short_code.upper()}')
+
+
+
+
 class RSVPFormView(FormView):
-    """Formulaire public pour les invités"""
-    template_name = 'events/rsvp_form.html'
+    template_name = 'guests/rsvp.html'
     form_class = RSVPForm
-    success_url = reverse_lazy('events:rsvp_thanks')
-    
+
     def dispatch(self, request, *args, **kwargs):
         self.event = get_object_or_404(
-            Event, 
-            slug=kwargs.get('slug'), 
-            rsvp_token=kwargs.get('token'),
-            is_active=True
+            Event,
+            slug=kwargs.get('slug'),
+            rsvp_token=kwargs.get('token')
         )
         return super().dispatch(request, *args, **kwargs)
-    
+
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['event'] = self.event
         return kwargs
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['event'] = self.event
+        context['guest'] = None
         return context
-    
+
     def form_valid(self, form):
         response = form.save(commit=False)
         response.event = self.event
         response.ip_address = self.request.META.get('REMOTE_ADDR')
         response.save()
-        
-        # Vérification si l'invité est dans la liste
-        response.verify_against_invited_list()
-        
-        # Envoi de l'email de confirmation
-        try:
-            response.send_confirmation_email()
-        except Exception as e:
-            print(f"Erreur envoi email: {e}")
-        
-        messages.success(self.request, _('Merci ! Votre réponse a bien été enregistrée.'))
-        return super().form_valid(form)
 
-class TableListView(LoginRequiredMixin, ListView):
+        # Vérification automatique
+        response.verify_against_invited_list()
+
+        # Envoi email (si configuré)
+        response.send_confirmation_email()
+
+        # Message de succès
+        messages.success(
+            self.request,
+            _('Merci ! Votre réponse a bien été enregistrée.')
+        )
+
+        # Redirection vers la page de remerciement avec les données
+        return render(self.request, 'guests/rsvp_thanks.html', {
+            'event': self.event,
+            'response': response,
+            'will_attend': response.will_attend,
+        })
+
+    def form_invalid(self, form):
+        # Afficher les erreurs du formulaire
+        for field, errors in form.errors.items():
+            for error in errors:
+                messages.error(self.request, f"{field}: {error}")
+        return super().form_invalid(form)
+
+class TableListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     model = Table
     template_name = 'events/table_list.html'
     context_object_name = 'tables'
 
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
     def get_queryset(self):
-        return Table.objects.filter(event_id=self.kwargs['event_id'])
+        return Table.objects.filter(event=self.event)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['event'] = get_object_or_404(Event, id=self.kwargs['event_id'], main_organizer=self.request.user)
+        context['event'] = self.event
         return context
 
-class TableCreateView(LoginRequiredMixin, CreateView):
+
+class TableCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     model = Table
     form_class = TableForm
     template_name = 'events/table_form.html'
 
-    def form_valid(self, form):
-        form.instance.event_id = self.kwargs['event_id']
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy('events:table_list', kwargs={'event_id': self.kwargs['event_id']})
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['event'] = get_object_or_404(Event, id=self.kwargs['event_id'], main_organizer=self.request.user)
+        context['event'] = self.event
+        context['title'] = _('Créer une table')
         return context
-    
-class AutoAssignTablesView(LoginRequiredMixin, View):
+
+    def form_valid(self, form):
+        form.instance.event = self.event
+        messages.success(self.request, _('Table créée avec succès.'))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('events:table_list', kwargs={'event_id': self.event.id})
+
+
+class TableUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = Table
+    form_class = TableForm
+    template_name = 'events/table_form.html'
+
+    def test_func(self):
+        table = self.get_object()
+        return self.request.user == table.event.main_organizer
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['event'] = self.object.event
+        context['title'] = _('Modifier la table')
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, _('Table modifiée avec succès.'))
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('events:table_list', kwargs={'event_id': self.object.event.id})
+
+
+class TableDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = Table
+    template_name = 'events/table_confirm_delete.html'
+
+    def test_func(self):
+        table = self.get_object()
+        return self.request.user == table.event.main_organizer
+
+    def get_success_url(self):
+        return reverse_lazy('events:table_list', kwargs={'event_id': self.object.event.id})
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(request, _('Table supprimée avec succès.'))
+        return super().delete(request, *args, **kwargs)
+
+
+class AutoAssignTablesView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
     def post(self, request, event_id):
-        event = get_object_or_404(Event, id=event_id, main_organizer=request.user)
-        service = TableAssignmentService(event)
-        service.auto_assign_all()
-        messages.success(request, "Les tables ont été attribuées automatiquement.")
-        return redirect('events:event_detail', event_id=event.id)
+        service = TableAssignmentService(self.event)
+        result = service.auto_assign_all()
+        if result:
+            messages.success(request, _('Les invités ont été attribués aux tables.'))
+        else:
+            messages.warning(request, _('Aucune table disponible ou aucun invité à attribuer.'))
+        return redirect('events:event_detail', slug=self.event.slug)
+
+# class AddInvitedGuestView(LoginRequiredMixin, CreateView):
+#     model = InvitedGuest
+#     form_class = InvitedGuestForm
+#     template_name = 'events/add_invited_guest.html'
+
+#     def dispatch(self, request, *args, **kwargs):
+#         self.event = get_object_or_404(Event, slug=kwargs.get('slug'), main_organizer=request.user)
+#         return super().dispatch(request, *args, **kwargs)
+
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['event'] = self.event
+#         return context
+
+#     def form_valid(self, form):
+#         form.instance.event = self.event
+#         form.instance.created_by = self.request.user
+#         response = super().form_valid(form)
+#         messages.success(self.request, _('Invité ajouté avec succès.'))
+#         return response
+
+#     def get_success_url(self):
+#         return reverse_lazy('events:event_detail', kwargs={'slug': self.event.slug})

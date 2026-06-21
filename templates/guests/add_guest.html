@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Ajouter un invité" %} - KbfEven{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <div class="glass-card p-6 md:p-8">
+        <h1 class="text-2xl font-bold mb-4">{% trans "Ajouter un invité manuellement" %}</h1>
+        <p class="text-gray-400 text-sm mb-6">
+            {% trans "L'invité sera ajouté à la liste officielle (InvitedGuest) et sera vérifié automatiquement lors de son RSVP." %}
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="space-y-4">
+                {{ form.as_p }}
+                <button type="submit" class="btn-primary w-full">{% trans "Ajouter" %}</button>
+            </div>
+        </form>
+        <a href="{% url 'guests:invited_list' event.id %}" class="btn-outline mt-4 inline-block">{% trans "Annuler" %}</a>
+    </div>
+</div>
+{% endblock %}

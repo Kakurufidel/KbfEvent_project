@@ -1,5 +1,7 @@
 from django import forms
 from .models import Event,Table
+from django.utils.translation import gettext_lazy as _
+
 
 
 class EventForm(forms.ModelForm):
@@ -85,12 +87,28 @@ class EventForm(forms.ModelForm):
         return instance
 
 
+
 class TableForm(forms.ModelForm):
     class Meta:
         model = Table
         fields = ['number', 'name', 'capacity']
         widgets = {
-            'number': forms.TextInput(attrs={'class': 'form-control'}),
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'capacity': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+            'number': forms.TextInput(attrs={
+                'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400',
+                'placeholder': 'Numéro de table'
+            }),
+            'name': forms.TextInput(attrs={
+                'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400',
+                'placeholder': 'Nom (optionnel)'
+            }),
+            'capacity': forms.NumberInput(attrs={
+                'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400',
+                'min': 1,
+                'placeholder': 'Capacité'
+            }),
+        }
+        labels = {
+            'number': _('Numéro de table'),
+            'name': _('Nom de la table (optionnel)'),
+            'capacity': _('Capacité'),
         }

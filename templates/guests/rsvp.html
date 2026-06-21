@@ -1,121 +1,229 @@
 {% extends 'base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "RSVP" %} - {{ event.title }}{% endblock %}
+{% block title %}{% trans "RSVP" %} - {{ event.name }}{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-12 col-lg-8">
-        <div class="card shadow-sm mb-4 border-0 animate-fade-in-up">
+<div class="max-w-3xl mx-auto px-4 sm:px-6 py-8">
+    <!-- Informations événement -->
+    <div class="glass-card p-6 md:p-8 mb-6">
+        <div class="text-center">
             {% if event.event_photo %}
-            <img src="{{ event.event_photo.url }}" class="card-img-top rsvp-photo" alt="{{ event.title }}">
+                <img src="{{ event.event_photo.url }}" alt="{{ event.name }}" class="w-full max-h-64 object-cover rounded-xl mb-4">
             {% endif %}
-            <div class="card-body text-center">
-                <h3 class="card-title">{{ event.title }}</h3>
-                <div class="row mt-3 text-muted">
-                    <div class="col-12 col-md-4 mb-2">
-                        <i class="bi bi-calendar me-1"></i>{{ event.event_date|date:"l d F Y" }}
-                    </div>
-                    <div class="col-12 col-md-4 mb-2">
-                        <i class="bi bi-clock me-1"></i>{{ event.event_date|date:"H:i" }}
-                    </div>
-                    <div class="col-12 col-md-4 mb-2">
-                        <i class="bi bi-geo-alt me-1"></i>{{ event.location_name }}
-                    </div>
-                </div>
-                {% if event.location_gmap_link %}
-                <a href="{{ event.location_gmap_link }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
-                    <i class="bi bi-map me-1"></i>{% trans "View on Google Maps" %}
+            <h1 class="text-2xl md:text-3xl font-bold">{{ event.name }}</h1>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4 text-sm text-gray-400">
+                <div><i class="fas fa-calendar-day mr-2 text-purple-400"></i>{{ event.date|date:"l d F Y" }}</div>
+                <div><i class="fas fa-clock mr-2 text-cyan-400"></i>{{ event.time|time:"H:i" }}</div>
+                <div><i class="fas fa-map-marker-alt mr-2 text-purple-400"></i>{{ event.location }}</div>
+            </div>
+            {% if event.google_maps_link %}
+                <a href="{{ event.google_maps_link }}" target="_blank" class="text-cyan-400 hover:underline text-sm mt-2 inline-block">
+                    <i class="fas fa-map mr-1"></i>{% trans "Voir sur Google Maps" %}
                 </a>
-                {% endif %}
-                {% if event.description %}
-                <p class="mt-3">{{ event.description }}</p>
-                {% endif %}
-                <p class="mt-2"><strong>{% trans "Dress code" %}:</strong> {{ event.dress_code }}</p>
-            </div>
-        </div>
-
-        <div class="card shadow-sm border-0 animate-fade-in-up stagger-1">
-            <div class="card-body p-4">
-                <h4 class="card-title mb-4">
-                    <i class="bi bi-envelope-check me-2"></i>{% trans "Confirm Your Attendance" %}
-                </h4>
-                <p class="text-muted">
-                    {% blocktrans with name=guest.first_name %}Hello {{ name }}, please confirm your attendance for this event.{% endblocktrans %}
-                </p>
-                <form method="post" novalidate>
-                    {% csrf_token %}
-                    {% if form.non_field_errors %}
-                    <div class="alert alert-danger">
-                        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-                    </div>
-                    {% endif %}
-
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">{{ form.status.label }}</label>
-                        <div class="d-flex flex-column flex-sm-row gap-3">
-                            {% for radio in form.status %}
-                            <div class="rsvp-radio-card form-check border rounded-3 p-3 flex-fill {% if radio.data.value == 'confirmed' %}border-success{% else %}border-secondary{% endif %}">
-                                {{ radio.tag }}
-                                <label class="form-check-label w-100 cursor-pointer fw-medium" for="{{ radio.id_for_label }}">
-                                    {% if radio.data.value == 'confirmed' %}
-                                    <i class="bi bi-check-circle-fill text-success me-1"></i>
-                                    {% else %}
-                                    <i class="bi bi-x-circle-fill text-secondary me-1"></i>
-                                    {% endif %}
-                                    {{ radio.choice_label }}
-                                </label>
-                            </div>
-                            {% endfor %}
-                        </div>
-                        {% if form.status.errors %}<div class="text-danger small">{{ form.status.errors.0 }}</div>{% endif %}
-                    </div>
-
-                    <div id="confirmed-fields">
-                        <div class="mb-3">
-                            <label for="{{ form.drink_choice.id_for_label }}" class="form-label">{{ form.drink_choice.label }}</label>
-                            {{ form.drink_choice }}
-                            {% if form.drink_choice.errors %}<div class="text-danger small">{{ form.drink_choice.errors.0 }}</div>{% endif %}
-                        </div>
-
-                        <div id="drink-other-field" class="mb-3" style="display: none;">
-                            <label for="{{ form.drink_other.id_for_label }}" class="form-label">{{ form.drink_other.label }}</label>
-                            {{ form.drink_other }}
-                            {% if form.drink_other.errors %}<div class="text-danger small">{{ form.drink_other.errors.0 }}</div>{% endif %}
-                        </div>
-
-                        <div class="mb-3 form-check">
-                            {{ form.is_accompanied }}
-                            <label class="form-check-label" for="{{ form.is_accompanied.id_for_label }}">
-                                {{ form.is_accompanied.label }}
-                            </label>
-                        </div>
-
-                        <div id="companion-fields" class="mb-3" style="display: none;">
-                            <div class="card bg-light">
-                                <div class="card-body">
-                                    <h6>{% trans "Companion Information" %}</h6>
-                                    <div class="mb-3">
-                                        <label for="{{ form.companion_drink_choice.id_for_label }}" class="form-label">{{ form.companion_drink_choice.label }}</label>
-                                        {{ form.companion_drink_choice }}
-                                        {% if form.companion_drink_choice.errors %}<div class="text-danger small">{{ form.companion_drink_choice.errors.0 }}</div>{% endif %}
-                                    </div>
-                                    <div id="companion-drink-other-field" class="mb-3" style="display: none;">
-                                        <label for="{{ form.companion_drink_other.id_for_label }}" class="form-label">{{ form.companion_drink_other.label }}</label>
-                                        {{ form.companion_drink_other }}
-                                        {% if form.companion_drink_other.errors %}<div class="text-danger small">{{ form.companion_drink_other.errors.0 }}</div>{% endif %}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3">
-                        <i class="bi bi-send me-1"></i>{% trans "Send My Response" %}
-                    </button>
-                </form>
-            </div>
+            {% endif %}
+            {% if event.dress_code %}
+                <p class="mt-3 text-sm"><span class="text-gray-400">{% trans "Code vestimentaire" %} :</span> {{ event.dress_code }}</p>
+            {% endif %}
+            {% if event.description %}
+                <p class="mt-3 text-gray-300 text-sm">{{ event.description }}</p>
+            {% endif %}
         </div>
     </div>
+
+    <!-- Formulaire -->
+    <div class="glass-card p-6 md:p-8">
+        <h2 class="text-xl font-bold mb-4">{% trans "Confirmer votre présence" %}</h2>
+        <p class="text-gray-400 text-sm mb-6">
+            {% trans "Veuillez remplir ce formulaire pour confirmer votre présence." %}
+        </p>
+
+        <form method="post" novalidate id="rsvp-form">
+            {% csrf_token %}
+            
+            <!-- Champ attendance (radio) -->
+            <div class="mb-6">
+                <label class="block text-sm font-semibold mb-2">{{ form.attendance.label }}</label>
+                <div class="flex flex-wrap gap-4">
+                    {% for radio in form.attendance %}
+                        <label class="flex items-center gap-2 p-3 rounded-xl border border-white/20 hover:border-purple-400 cursor-pointer transition {% if radio.data.value == 'yes' %}bg-purple-500/20 border-purple-400{% endif %}">
+                            {{ radio.tag }}
+                            <span>{{ radio.choice_label }}</span>
+                        </label>
+                    {% endfor %}
+                </div>
+                {% if form.attendance.errors %}
+                    <p class="text-red-400 text-xs mt-1">{{ form.attendance.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Champs masqués si "Non" -->
+            <div id="rsvp-details" style="display: none;">
+                <!-- Prénom, Nom, Email, Téléphone -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">{{ form.first_name.label }}</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.first_name.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">{{ form.last_name.label }}</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}<p class="text-red-400 text-xs mt-1">{{ form.last_name.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">{{ form.email.label }}</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}<p class="text-red-400 text-xs mt-1">{{ form.email.errors.0 }}</p>{% endif %}
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">{{ form.phone.label }}</label>
+                        {{ form.phone }}
+                        {% if form.phone.errors %}<p class="text-red-400 text-xs mt-1">{{ form.phone.errors.0 }}</p>{% endif %}
+                    </div>
+                </div>
+
+                <!-- Boisson de l'invité -->
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold mb-1">{{ form.drink_choice.label }}</label>
+                    {{ form.drink_choice }}
+                    {% if form.drink_choice.errors %}<p class="text-red-400 text-xs mt-1">{{ form.drink_choice.errors.0 }}</p>{% endif %}
+                </div>
+
+                <div id="drink-other-field" style="display: none;" class="mb-4">
+                    <label class="block text-sm font-semibold mb-1">{{ form.drink_other.label }}</label>
+                    {{ form.drink_other }}
+                    {% if form.drink_other.errors %}<p class="text-red-400 text-xs mt-1">{{ form.drink_other.errors.0 }}</p>{% endif %}
+                </div>
+
+                <!-- Accompagnement -->
+                <div class="mb-4 flex items-center gap-2">
+                    {{ form.is_accompanied }}
+                    <label for="{{ form.is_accompanied.id_for_label }}" class="text-sm font-semibold">{{ form.is_accompanied.label }}</label>
+                </div>
+
+                <!-- Section accompagnement (apparaît si coché) -->
+                <div id="companion-fields" style="display: none;" class="bg-white/5 p-4 rounded-xl mb-4">
+                    <h4 class="text-sm font-semibold mb-2">{% trans "Informations de l'accompagnant" %}</h4>
+                    
+                    <!-- Nombre d'accompagnants -->
+                    <div class="mb-3">
+                        <label class="block text-sm font-semibold mb-1">{{ form.number_of_companions.label }}</label>
+                        {{ form.number_of_companions }}
+                        {% if form.number_of_companions.errors %}
+                            <p class="text-red-400 text-xs mt-1">{{ form.number_of_companions.errors.0 }}</p>
+                        {% endif %}
+                        <p class="text-gray-500 text-xs mt-0.5">{% trans "Nombre de personnes qui vous accompagnent" %}</p>
+                    </div>
+
+                    <!-- Prénom et nom (optionnels) -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-semibold mb-1">{{ form.companion_first_name.label }}</label>
+                            {{ form.companion_first_name }}
+                            <p class="text-gray-500 text-xs mt-0.5">{% trans "Optionnel" %}</p>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold mb-1">{{ form.companion_last_name.label }}</label>
+                            {{ form.companion_last_name }}
+                            <p class="text-gray-500 text-xs mt-0.5">{% trans "Optionnel" %}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Boisson de l'accompagnant (obligatoire) -->
+                    <div class="mt-3">
+                        <label class="block text-sm font-semibold mb-1">{{ form.companion_drink_choice.label }}</label>
+                        {{ form.companion_drink_choice }}
+                        {% if form.companion_drink_choice.errors %}
+                            <p class="text-red-400 text-xs mt-1">{{ form.companion_drink_choice.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                    <div id="companion-drink-other-field" style="display: none;" class="mt-3">
+                        <label class="block text-sm font-semibold mb-1">{{ form.companion_drink_other.label }}</label>
+                        {{ form.companion_drink_other }}
+                        {% if form.companion_drink_other.errors %}
+                            <p class="text-red-400 text-xs mt-1">{{ form.companion_drink_other.errors.0 }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Végétarien et notes -->
+                <div class="mb-4 flex items-center gap-2">
+                    {{ form.is_vegan }}
+                    <label for="{{ form.is_vegan.id_for_label }}" class="text-sm font-semibold">{{ form.is_vegan.label }}</label>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold mb-1">{{ form.special_notes.label }}</label>
+                    {{ form.special_notes }}
+                    {% if form.special_notes.errors %}<p class="text-red-400 text-xs mt-1">{{ form.special_notes.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn-primary w-full py-3 rounded-xl font-semibold mt-4">
+                <i class="fas fa-paper-plane mr-2"></i>{% trans "Envoyer ma réponse" %}
+            </button>
+        </form>
+    </div>
 </div>
+
+<script>
+    (function() {
+        // Gestion de l'affichage conditionnel
+        const attendanceRadios = document.querySelectorAll('input[name="attendance"]');
+        const detailsDiv = document.getElementById('rsvp-details');
+        const drinkChoice = document.getElementById('id_drink_choice');
+        const drinkOtherField = document.getElementById('drink-other-field');
+        // ID correct de la checkbox : id_is_accompanied (par défaut)
+        const isAccompanied = document.getElementById('id_is_accompanied');
+        const companionFields = document.getElementById('companion-fields');
+        const companionDrinkChoice = document.getElementById('id_companion_drink_choice');
+        const companionDrinkOtherField = document.getElementById('companion-drink-other-field');
+
+        function toggleDetails() {
+            const selected = document.querySelector('input[name="attendance"]:checked');
+            if (selected && selected.value === 'yes') {
+                detailsDiv.style.display = 'block';
+            } else {
+                detailsDiv.style.display = 'none';
+            }
+        }
+
+        function toggleDrinkOther() {
+            if (drinkChoice && drinkChoice.value === 'other') {
+                drinkOtherField.style.display = 'block';
+            } else {
+                drinkOtherField.style.display = 'none';
+            }
+        }
+
+        function toggleCompanionFields() {
+            if (isAccompanied && isAccompanied.checked) {
+                companionFields.style.display = 'block';
+            } else {
+                companionFields.style.display = 'none';
+            }
+        }
+
+        function toggleCompanionDrinkOther() {
+            if (companionDrinkChoice && companionDrinkChoice.value === 'other') {
+                companionDrinkOtherField.style.display = 'block';
+            } else {
+                companionDrinkOtherField.style.display = 'none';
+            }
+        }
+
+        // Attacher les événements
+        attendanceRadios.forEach(radio => radio.addEventListener('change', toggleDetails));
+        if (drinkChoice) drinkChoice.addEventListener('change', toggleDrinkOther);
+        if (isAccompanied) isAccompanied.addEventListener('change', toggleCompanionFields);
+        if (companionDrinkChoice) companionDrinkChoice.addEventListener('change', toggleCompanionDrinkOther);
+
+        // Initialisation
+        toggleDetails();
+        toggleDrinkOther();
+        toggleCompanionFields();
+        toggleCompanionDrinkOther();
+    })();
+</script>
 {% endblock %}

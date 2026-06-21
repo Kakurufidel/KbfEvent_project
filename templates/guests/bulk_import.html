@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Importer des invités" %} - KbfEven{% endblock %}
+
+{% block content %}
+<div class="w-full max-w-2xl mx-auto px-4 sm:px-6 py-6 md:py-10">
+    <div class="glass-card p-5 sm:p-6 md:p-8">
+        <h1 class="text-xl sm:text-2xl md:text-3xl font-bold mb-3 md:mb-4">
+            {% trans "Importer la liste officielle des invités" %}
+        </h1>
+        
+        <p class="text-gray-400 text-sm mb-2">
+          {% trans "Téléchargez un fichier Excel (.xlsx, .xls) ou CSV avec les colonnes :" %}
+      </p>
+      <ul class="text-gray-400 text-sm list-disc list-inside mb-4">
+          <li>Prénom</li>
+          <li>Nom</li>
+          <li>Postnom (optionnel)</li>
+          <li>Email</li>
+          <li>Téléphone</li>
+          <li>Table (optionnel) – nom ou numéro de la table</li>
+      </ul>
+        <p class="text-gray-400 text-sm mb-4 md:mb-6">
+            {% trans "Les invités importés seront considérés comme officiels. Leurs réponses RSVP seront automatiquement vérifiées." %}
+        </p>
+        
+        <form method="post" enctype="multipart/form-data" class="space-y-4">
+            {% csrf_token %}
+            
+            <!-- Champ fichier -->
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">
+                    {% trans "Fichier Excel / CSV" %}
+                </label>
+                {{ form.excel_file }}
+                {% if form.excel_file.errors %}
+                    <p class="text-red-400 text-xs mt-1">{{ form.excel_file.errors.0 }}</p>
+                {% endif %}
+                <p class="text-gray-500 text-xs mt-1">
+                    {{ form.excel_file.help_text }}
+                </p>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                <button type="submit" class="btn-primary w-full sm:w-auto justify-center">
+                    <i class="fas fa-file-upload mr-2"></i>{% trans "Importer" %}
+                </button>
+                <a href="{% url 'guests:guest_list' event.id %}" 
+                   class="btn-outline w-full sm:w-auto justify-center text-center">
+                    {% trans "Annuler" %}
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

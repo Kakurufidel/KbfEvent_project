@@ -38,7 +38,14 @@ class InvitedGuest(models.Model):
         verbose_name=_('créé par'),
     )
     created_at = models.DateTimeField(_('créé le'), auto_now_add=True)
-
+    table = models.ForeignKey(
+        'events.Table',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='invited_guests',
+        verbose_name=_('table assignée')
+    )
     class Meta:
         verbose_name = _('invité pré-enregistré')
         verbose_name_plural = _('invités pré-enregistrés')

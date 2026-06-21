@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Ajouter un invité" %} - KbfEven{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto py-8">
+    <div class="glass-card p-6 md:p-8">
+        <h1 class="text-2xl font-bold mb-4">{% trans "Ajouter un invité manuellement" %}</h1>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn-primary w-full mt-4">{% trans "Ajouter" %}</button>
+        </form>
+        <a href="{% url 'events:event_detail' event.slug %}" class="btn-outline mt-4 inline-block">{% trans "Annuler" %}</a>
+    </div>
+</div>
+{% endblock %}
