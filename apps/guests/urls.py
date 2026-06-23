@@ -25,6 +25,9 @@ urlpatterns = [
     path('event/<int:event_id>/export-invited-csv/', views.ExportInvitedCSVView.as_view(), name='export_invited_csv'),
     path('event/<int:event_id>/export-invited-excel/', views.ExportInvitedExcelView.as_view(), name='export_invited_excel'),
     path('event/<int:event_id>/add/', views.AddInvitedGuestView.as_view(), name='add_guest'),
-
+    path('guest/<int:guest_id>/assign-table/', views.AssignGuestTableView.as_view(), name='assign_guest_table'),
+# Invitation PDF
+    path('invitation/<uuid:token>/', views.InvitationPDFView.as_view(), name='invitation_pdf'),
+    path('invitation/<uuid:token>/preview/', views.InvitationPreviewView.as_view(), name='invitation_preview'),
 
 ]

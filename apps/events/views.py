@@ -18,6 +18,8 @@ from apps.guests.models import InvitedGuest
 from apps.guests.forms import InvitedGuestForm
 from .forms import TableForm
 from apps.guests.services import TableAssignmentService
+from django.http import HttpResponse
+from apps.guests.models import GuestResponse
 
 
 
@@ -36,15 +38,26 @@ def user_can_manage_event(user, event):
 
 
 class EventListView(LoginRequiredMixin, ListView):
-    """Liste des événements de l'organisateur"""
-    model = Event
     template_name = 'events/event_list.html'
     context_object_name = 'events'
 
     def get_queryset(self):
-        return Event.objects.filter(main_organizer=self.request.user)
+        user = self.request.user
+        # Événements dont l'utilisateur est l'organisateur principal
+        owned = Event.objects.filter(main_organizer=user)
+        # Événements où l'utilisateur est co-organisateur (status='accepted')
+        coorganized = Event.objects.filter(
+            collaborators__user=user,
+            collaborators__status='accepted'
+        )
+        # Union des deux
+        return (owned | coorganized).distinct().order_by('-created_at')
 
-
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_organizer'] = self.request.user.owned_events.exists()
+        return context
+    
 class EventCreateView(LoginRequiredMixin, CreateView):
     """Créer un nouvel événement"""
     model = Event
@@ -234,20 +247,37 @@ class JoinCoOrganizerView(FormView):
 
 class JoinCoOrganizerShortCodeView(View):
     """
-    Redirige vers la page de connexion avec le code court pré-rempli.
+    Permet à un utilisateur de rejoindre un événement comme co-organisateur
+    en utilisant le code court de 6 caractères.
     """
     def get(self, request, short_code):
-        # Vérifier que l'événement existe
         try:
             event = Event.objects.get(coorganizer_short_code=short_code.upper())
         except Event.DoesNotExist:
             messages.error(request, _('Code co-organisateur invalide.'))
             return redirect('events:event_list')
-        
-        # Rediriger vers la page de connexion avec le code en paramètre GET
-        login_url = reverse('authentication:login')
-        return redirect(f'{login_url}?coorganizer_code={short_code.upper()}')
 
+        # Si l'utilisateur n'est pas connecté, le rediriger vers login avec le code
+        if not request.user.is_authenticated:
+            login_url = reverse('authentication:login')
+            return redirect(f'{login_url}?coorganizer_code={short_code.upper()}')
+
+        # Si déjà connecté, l'ajouter comme co-organisateur
+        collaborator, created = EventCollaborator.objects.get_or_create(
+            event=event,
+            user=request.user,
+            defaults={'status': 'accepted', 'accepted_at': timezone.now()}
+        )
+        if not created and collaborator.status == 'pending':
+            collaborator.status = 'accepted'
+            collaborator.accepted_at = timezone.now()
+            collaborator.save()
+        elif not created and collaborator.status == 'accepted':
+            messages.info(request, _('Vous êtes déjà co-organisateur de cet événement.'))
+        else:
+            messages.success(request, _('Vous êtes maintenant co-organisateur de l\'événement "%s".') % event.name)
+
+        return redirect('events:event_detail', slug=event.slug)
 
 
 
@@ -401,6 +431,21 @@ class AutoAssignTablesView(LoginRequiredMixin, UserPassesTestMixin, View):
             messages.warning(request, _('Aucune table disponible ou aucun invité à attribuer.'))
         return redirect('events:event_detail', slug=self.event.slug)
 
+class TablesPDFView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get(self, request, event_id):
+        from apps.guests.services import generate_tables_pdf
+        pdf = generate_tables_pdf(self.event)
+        if not pdf:
+            messages.error(request, _('La génération du PDF a échoué. Vérifiez que reportlab est installé.'))
+            return redirect('events:event_detail', slug=self.event.slug)
+        response = HttpResponse(pdf, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="tables_{self.event.slug}.pdf"'
+        return response
+
 # class AddInvitedGuestView(LoginRequiredMixin, CreateView):
 #     model = InvitedGuest
 #     form_class = InvitedGuestForm
@@ -424,3 +469,197 @@ class AutoAssignTablesView(LoginRequiredMixin, UserPassesTestMixin, View):
 
 #     def get_success_url(self):
 #         return reverse_lazy('events:event_detail', kwargs={'slug': self.event.slug})
+
+# ========== RÉVISION MANUELLE DES TABLES ==========
+
+class AssignGuestTableView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """Vue pour déplacer un invité d'une table à une autre"""
+    template_name = 'events/assign_guest_table.html'
+
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get(self, request, event_id):
+        guests = GuestResponse.objects.filter(
+            event=self.event,
+            will_attend=True
+        ).select_related('table').order_by('first_name', 'last_name')
+        
+        tables = Table.objects.filter(event=self.event).order_by('number')
+        
+        context = {
+            'event': self.event,
+            'guests': guests,
+            'tables': tables,
+            'selected_guest_id': request.GET.get('guest_id'),
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request, event_id):
+        guest_id = request.POST.get('guest_id')
+        table_id = request.POST.get('table_id')
+        
+        if not guest_id or not table_id:
+            messages.error(request, _('Veuillez sélectionner un invité et une table.'))
+            return redirect('events:assign_guest_table', event_id=event_id)
+        
+        try:
+            guest = GuestResponse.objects.get(id=guest_id, event=self.event)
+            table = Table.objects.get(id=table_id, event=self.event)
+            
+            # Vérifier que la table a de la place
+            if table.guests.count() >= table.capacity:
+                messages.error(request, _('Cette table est pleine (capacité: {capacity}).').format(capacity=table.capacity))
+                return redirect('events:assign_guest_table', event_id=event_id)
+            
+            old_table = guest.table
+            guest.table = table
+            guest.save()
+            
+            messages.success(
+                request,
+                _('{guest} a été déplacé(e) de la table {old} vers la table {new}.').format(
+                    guest=guest.get_full_name(),
+                    old=old_table.number if old_table else 'aucune',
+                    new=table.number
+                )
+            )
+        except GuestResponse.DoesNotExist:
+            messages.error(request, _('Invité introuvable.'))
+        except Table.DoesNotExist:
+            messages.error(request, _('Table introuvable.'))
+        
+        return redirect('events:assign_guest_table', event_id=event_id)
+# ========== EXPORT TABLES ==========
+
+class ExportTablesCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """Export CSV des tables avec invités et boissons"""
+    
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get(self, request, event_id):
+        tables = Table.objects.filter(event=self.event).prefetch_related('guests')
+        
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = f'attachment; filename="tables_guests_{self.event.id}.csv"'
+        response.write('\ufeff')  # BOM pour UTF-8
+        
+        writer = csv.writer(response)
+        writer.writerow([
+            'Table', 'Capacité', 'Occupée', 'Invité', 'Email', 'Téléphone',
+            'Boisson', 'Autre boisson', 'Accompagnement', 'Boisson accompagnant',
+            'Vérifié', 'Statut présence', 'Nombre de personnes'
+        ])
+        
+        for table in tables:
+            guests = table.guests.filter(will_attend=True).order_by('first_name', 'last_name')
+            if guests.exists():
+                for guest in guests:
+                    writer.writerow([
+                        table.number,
+                        table.capacity,
+                        guests.count(),
+                        guest.get_full_name(),
+                        guest.email,
+                        guest.phone or '',
+                        guest.drink_display,
+                        guest.drink_other or '',
+                        guest.get_companion_full_name() if guest.is_accompanied else '',
+                        guest.companion_drink_display if guest.is_accompanied else '',
+                        'Oui' if guest.is_verified else 'Non',
+                        'Présent' if guest.will_attend else 'Absent',
+                        guest.number_of_guests,
+                    ])
+            else:
+                # Table vide
+                writer.writerow([
+                    table.number,
+                    table.capacity,
+                    0,
+                    '-- Aucun invité --', '', '', '', '', '', '', '', '', ''
+                ])
+        
+        return response
+
+
+class ExportTablesExcelView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """Export Excel des tables avec invités et boissons"""
+    
+    def test_func(self):
+        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
+        return self.request.user == self.event.main_organizer
+
+    def get(self, request, event_id):
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, Alignment, PatternFill
+        
+        tables = Table.objects.filter(event=self.event).prefetch_related('guests')
+        
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Tables et invités"
+        
+        # En-têtes
+        headers = [
+            'Table', 'Capacité', 'Occupée', 'Invité', 'Email', 'Téléphone',
+            'Boisson', 'Autre boisson', 'Accompagnement', 'Boisson accompagnant',
+            'Vérifié', 'Statut présence', 'Nombre de personnes'
+        ]
+        
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="8B5CF6", end_color="8B5CF6", fill_type="solid")
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal='center')
+        
+        row_idx = 2
+        for table in tables:
+            guests = table.guests.filter(will_attend=True).order_by('first_name', 'last_name')
+            if guests.exists():
+                for guest in guests:
+                    ws.cell(row=row_idx, column=1, value=table.number)
+                    ws.cell(row=row_idx, column=2, value=table.capacity)
+                    ws.cell(row=row_idx, column=3, value=guests.count())
+                    ws.cell(row=row_idx, column=4, value=guest.get_full_name())
+                    ws.cell(row=row_idx, column=5, value=guest.email)
+                    ws.cell(row=row_idx, column=6, value=guest.phone or '')
+                    ws.cell(row=row_idx, column=7, value=guest.drink_display)
+                    ws.cell(row=row_idx, column=8, value=guest.drink_other or '')
+                    ws.cell(row=row_idx, column=9, value=guest.get_companion_full_name() if guest.is_accompanied else '')
+                    ws.cell(row=row_idx, column=10, value=guest.companion_drink_display if guest.is_accompanied else '')
+                    ws.cell(row=row_idx, column=11, value='Oui' if guest.is_verified else 'Non')
+                    ws.cell(row=row_idx, column=12, value='Présent' if guest.will_attend else 'Absent')
+                    ws.cell(row=row_idx, column=13, value=guest.number_of_guests)
+                    row_idx += 1
+            else:
+                ws.cell(row=row_idx, column=1, value=table.number)
+                ws.cell(row=row_idx, column=2, value=table.capacity)
+                ws.cell(row=row_idx, column=3, value=0)
+                ws.cell(row=row_idx, column=4, value='-- Aucun invité --')
+                row_idx += 1
+        
+        # Ajuster les colonnes
+        for column in ws.columns:
+            max_length = 0
+            column_letter = column[0].column_letter
+            for cell in column:
+                try:
+                    if len(str(cell.value)) > max_length:
+                        max_length = len(str(cell.value))
+                except:
+                    pass
+            adjusted_width = min(max_length + 2, 30)
+            ws.column_dimensions[column_letter].width = adjusted_width
+        
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="tables_guests_{self.event.id}.xlsx"'
+        wb.save(response)
+        return response

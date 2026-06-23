@@ -112,3 +112,31 @@ class TableForm(forms.ModelForm):
             'name': _('Nom de la table (optionnel)'),
             'capacity': _('Capacité'),
         }
+        
+class AssignTableForm(forms.Form):
+    guest_id = forms.ChoiceField(
+        label=_('Invité'),
+        widget=forms.Select(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400'})
+    )
+    table_id = forms.ChoiceField(
+        label=_('Nouvelle table'),
+        widget=forms.Select(attrs={'class': 'w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400'})
+    )
+
+    def __init__(self, *args, **kwargs):
+        event = kwargs.pop('event', None)
+        super().__init__(*args, **kwargs)
+        
+        if event:
+            guests = GuestResponse.objects.filter(event=event, will_attend=True).select_related('table')
+            guest_choices = [('', _('Sélectionnez un invité'))]
+            for g in guests:
+                label = f"{g.get_full_name()} (table: {g.table.number if g.table else 'non assignée'})"
+                guest_choices.append((g.id, label))
+            self.fields['guest_id'].choices = guest_choices
+            
+            tables = Table.objects.filter(event=event).order_by('number')
+            table_choices = [('', _('Sélectionnez une table'))]
+            for t in tables:
+                table_choices.append((t.id, f"Table {t.number} ({t.guests.count()}/{t.capacity})"))
+            self.fields['table_id'].choices = table_choices

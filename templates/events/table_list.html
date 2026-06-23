@@ -4,49 +4,126 @@
 {% block title %}{% trans "Tables" %} - {{ event.name }}{% endblock %}
 
 {% block content %}
-<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-    <div class="flex justify-between items-center mb-6">
-        <h1 class="text-2xl font-bold">{% trans "Tables de" %} {{ event.name }}</h1>
-        <a href="{% url 'events:table_create' event.id %}" class="btn-primary">
-            <i class="fas fa-plus mr-2"></i>{% trans "Ajouter une table" %}
-        </a>
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <!-- En-tête -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <div>
+            <a href="{% url 'events:event_detail' event.slug %}" class="text-purple-400 hover:underline text-sm">
+                <i class="fas fa-arrow-left mr-1"></i>{% trans "Retour à l'événement" %}
+            </a>
+            <h1 class="text-2xl font-bold mt-1">{% trans "Tables de" %} {{ event.name }}</h1>
+            <p class="text-sm text-gray-400">
+                {% blocktrans with total=tables.count %}{{ total }} tables configurées{% endblocktrans %}
+            </p>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            <a href="{% url 'events:table_create' event.id %}" class="btn-primary">
+                <i class="fas fa-plus mr-2"></i>{% trans "Ajouter une table" %}
+            </a>
+        </div>
     </div>
 
+    <!-- Actions rapides -->
+    <div class="flex flex-wrap gap-2 mb-6">
+        <a href="{% url 'events:assign_guest_table' event.id %}" class="btn-primary">
+            <i class="fas fa-arrows-alt-h mr-1"></i>{% trans "Réviser les tables" %}
+        </a>
+        <a href="{% url 'events:export_tables_csv' event.id %}" class="btn-outline">
+            <i class="fas fa-file-csv mr-1"></i>{% trans "Exporter CSV" %}
+        </a>
+        <a href="{% url 'events:export_tables_excel' event.id %}" class="btn-outline">
+            <i class="fas fa-file-excel mr-1"></i>{% trans "Exporter Excel" %}
+        </a>
+        <form method="post" action="{% url 'events:auto_assign_tables' event.id %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="btn-primary">
+                <i class="fas fa-random mr-1"></i>{% trans "Attribuer (pêle-mêle)" %}
+            </button>
+        </form>
+    </div>
+
+    <!-- Grille des tables -->
     {% if tables %}
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for table in tables %}
                 <div class="glass-card p-5 hover:scale-[1.02] transition-all duration-300">
                     <div class="flex justify-between items-start">
-                        <h3 class="text-lg font-semibold">{% trans "Table" %} {{ table.number }}</h3>
-                        <span class="text-sm text-gray-400">{{ table.guests.count }}/{{ table.capacity }}</span>
+                        <div>
+                            <h3 class="text-lg font-semibold">{% trans "Table" %} {{ table.number }}</h3>
+                            {% if table.name %}
+                                <p class="text-sm text-gray-400">{{ table.name }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="text-right">
+                            <span class="text-sm font-medium {% if table.guests.count == table.capacity %}text-red-400{% elif table.guests.count == 0 %}text-gray-500{% else %}text-green-400{% endif %}">
+                                {{ table.guests.count }}/{{ table.capacity }}
+                            </span>
+                            <div class="text-xs text-gray-500">
+                                {% if table.guests.count == 0 %}
+                                    {% trans "Vide" %}
+                                {% elif table.guests.count == table.capacity %}
+                                    {% trans "Pleine" %}
+                                {% else %}
+                                    {% trans "Partiellement occupée" %}
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
-                    {% if table.name %}<p class="text-sm text-gray-400 mt-1">{{ table.name }}</p>{% endif %}
-                    <div class="mt-3 flex flex-wrap gap-2">
-                        <a href="{% url 'events:table_update' table.id %}" class="btn-outline text-sm">{% trans "Modifier" %}</a>
-                        <button onclick="confirmDelete('{{ table.id }}')" class="bg-red-500/20 hover:bg-red-500/30 text-sm px-3 py-1 rounded-full transition">{% trans "Supprimer" %}</button>
+                    
+                    <!-- Liste des invités de la table -->
+                    <div class="mt-3">
+                        {% for guest in table.guests.all|slice:":5" %}
+                            <div class="text-sm text-gray-300 flex justify-between items-center py-1 border-b border-white/5">
+                                <span>{{ guest.get_full_name }}</span>
+                                <span class="text-xs text-gray-500">{{ guest.drink_display|default:"-" }}</span>
+                            </div>
+                        {% empty %}
+                            <p class="text-sm text-gray-500 italic">{% trans "Aucun invité assigné" %}</p>
+                        {% endfor %}
+                        {% if table.guests.count > 5 %}
+                            <div class="text-xs text-gray-500 text-center mt-1">
+                                {% blocktrans with count=table.guests.count|add:"-5" %}+ {{ count }} autres invités{% endblocktrans %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Actions -->
+                    <div class="mt-4 flex flex-wrap gap-2 pt-3 border-t border-white/10">
+                        <a href="{% url 'events:table_update' table.id %}" class="btn-outline text-sm flex-1 text-center">
+                            <i class="fas fa-edit mr-1"></i>{% trans "Modifier" %}
+                        </a>
+                        <button onclick="confirmDelete('{{ table.id }}')" class="bg-red-500/20 hover:bg-red-500/30 text-sm px-3 py-1 rounded-full transition">
+                            <i class="fas fa-trash mr-1"></i>
+                        </button>
                     </div>
                 </div>
             {% endfor %}
         </div>
     {% else %}
         <div class="glass-card p-10 text-center">
+            <i class="fas fa-chair text-4xl text-gray-500 mb-3 block"></i>
             <p class="text-gray-400">{% trans "Aucune table pour cet événement." %}</p>
-            <a href="{% url 'events:table_create' event.id %}" class="btn-primary mt-4 inline-block">{% trans "Créer une table" %}</a>
+            <p class="text-sm text-gray-500">{% trans "Créez des tables pour commencer à assigner vos invités." %}</p>
+            <a href="{% url 'events:table_create' event.id %}" class="btn-primary mt-4 inline-block">
+                <i class="fas fa-plus mr-1"></i>{% trans "Créer une table" %}
+            </a>
         </div>
     {% endif %}
 
-    <div class="mt-8 flex gap-3">
-        <a href="{% url 'events:event_detail' event.slug %}" class="btn-outline">{% trans "Retour à l'événement" %}</a>
-        <form method="post" action="{% url 'events:auto_assign_tables' event.id %}">
-            {% csrf_token %}
-            <button type="submit" class="btn-primary">{% trans "Attribuer les invités (pêle-mêle)" %}</button>
-        </form>
+    <!-- Actions de bas de page -->
+    <div class="mt-8 flex flex-wrap gap-3">
+        <a href="{% url 'events:event_detail' event.slug %}" class="btn-outline">
+            <i class="fas fa-arrow-left mr-1"></i>{% trans "Retour à l'événement" %}
+        </a>
+        <a href="{% url 'guests:guest_list' event.id %}" class="btn-outline">
+            <i class="fas fa-list mr-1"></i>{% trans "Voir les invités" %}
+        </a>
     </div>
 </div>
 
 <script>
     function confirmDelete(tableId) {
-        if (confirm('{% trans "Supprimer cette table ?" %}')) {
+        if (confirm('{% trans "Supprimer cette table ? Cette action est irréversible." %}')) {
             const form = document.createElement('form');
             form.method = 'post';
             form.action = "{% url 'events:table_delete' 0 %}".replace('0', tableId);

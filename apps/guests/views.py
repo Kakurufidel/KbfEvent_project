@@ -12,8 +12,6 @@ from django.urls import reverse
 from django.conf import settings
 from django.urls import reverse, reverse_lazy
 from django.utils.translation import gettext as _
-
-
 from apps.events.models import Event
 from .models import GuestResponse, InvitedGuest
 from .forms import RSVPForm, InvitedGuestForm, GuestBulkImportForm
@@ -385,3 +383,90 @@ class ExportInvitedExcelView(LoginRequiredMixin, UserPassesTestMixin, View):
         response['Content-Disposition'] = f'attachment; filename="invited_guests_{self.event.id}.xlsx"'
         wb.save(response)
         return response
+class AssignGuestTableView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        self.guest = get_object_or_404(GuestResponse, id=self.kwargs['guest_id'])
+        return self.request.user == self.guest.event.main_organizer
+
+    def post(self, request, guest_id):
+        guest = self.guest
+        table_id = request.POST.get('table_id')
+        if table_id:
+            try:
+                table = Table.objects.get(id=table_id, event=guest.event)
+                guest.table = table
+                guest.save()
+                messages.success(request, _('Table mise à jour avec succès.'))
+            except Table.DoesNotExist:
+                messages.error(request, _('Table invalide.'))
+        else:
+            # Si table_id vide, on retire l'assignation
+            guest.table = None
+            guest.save()
+            messages.info(request, _('Assignation de table retirée.'))
+        return redirect(request.META.get('HTTP_REFERER', 'events:event_detail', kwargs={'slug': guest.event.slug}))
+    
+from .services import generate_invitation_pdf
+
+
+class InvitationPDFView(View):
+    """
+    Vue en classe pour générer et télécharger l'invitation PDF.
+    """
+    
+    def get(self, request, token):
+        guest_response = get_object_or_404(GuestResponse, invitation_token=token)
+        
+        # Vérifier que l'invité a bien répondu
+        if not guest_response.submitted_at:
+            messages.warning(request, _("Vous devez d'abord confirmer votre présence."))
+            return redirect('guests:rsvp', token=token)
+        
+        pdf_content = generate_invitation_pdf(guest_response)
+        
+        if not pdf_content:
+            messages.error(request, _("Impossible de générer l'invitation. Veuillez réessayer."))
+            return redirect('events:event_detail', slug=guest_response.event.slug)
+        
+        # Préparer le nom du fichier
+        filename = f"invitation_{guest_response.event.slug}_{guest_response.first_name}_{guest_response.last_name}.pdf"
+        
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class InvitationPreviewView(View):
+    """
+    Vue pour prévisualiser l'invitation PDF dans le navigateur.
+    """
+    
+    def get(self, request, token):
+        guest_response = get_object_or_404(GuestResponse, invitation_token=token)
+        
+        # Vérifier les droits (seul l'organisateur ou l'invité lui-même peut voir)
+        if request.user.is_authenticated:
+            event = guest_response.event
+            is_organizer = (event.main_organizer == request.user)
+            is_collaborator = event.collaborators.filter(user=request.user, status='accepted').exists()
+        else:
+            is_organizer = False
+            is_collaborator = False
+        
+        # L'invité peut voir sa propre invitation
+        is_guest = (request.GET.get('email') == guest_response.email)
+        
+        if not (is_organizer or is_collaborator or is_guest):
+            messages.error(request, _("Vous n'avez pas l'autorisation de voir cette invitation."))
+            return redirect('authentication:login')
+        
+        pdf_content = generate_invitation_pdf(guest_response)
+        
+        if not pdf_content:
+            messages.error(request, _("Impossible de générer l'invitation."))
+            return redirect('events:event_detail', slug=guest_response.event.slug)
+        
+        response = HttpResponse(pdf_content, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="invitation_{guest_response.event.slug}.pdf"'
+        return response
+    

@@ -283,3 +283,275 @@ class TableAssignmentService:
                     guest.save()
                     break
         return True
+    
+def generate_tables_pdf(event):
+    """Génère un PDF avec la liste des tables, invités et leurs boissons."""
+    if not REPORTLAB_AVAILABLE:
+        return None
+    
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
+    styles = getSampleStyleSheet()
+    story = []
+    
+    story.append(Paragraph(f"Récapitulatif des tables - {event.name}", styles['Title']))
+    story.append(Spacer(1, 12))
+    story.append(Paragraph(f"Date : {event.date.strftime('%d/%m/%Y')} à {event.time.strftime('%H:%M') if event.time else ''}", styles['Normal']))
+    story.append(Spacer(1, 20))
+    
+    tables = event.tables.all().order_by('number')
+    for table in tables:
+        story.append(Paragraph(f"Table {table.number} (capacité {table.capacity})", styles['Heading2']))
+        guests = table.guests.filter(will_attend=True).order_by('last_name', 'first_name')
+        if guests:
+            data = [["Prénom", "Nom", "Boisson"]]
+            for g in guests:
+                data.append([g.first_name, g.last_name, g.drink_display])
+            t = Table(data, colWidths=[100,100,150])
+            t.setStyle(TableStyle([
+                ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+                ('FONTSIZE', (0,0), (-1,-1), 10),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            ]))
+            story.append(t)
+        else:
+            story.append(Paragraph("Aucun invité confirmé sur cette table.", styles['Italic']))
+        story.append(Spacer(1, 12))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+import io
+from django.core.files.base import ContentFile
+from django.conf import settings
+import qrcode
+from PIL import Image as PILImage
+
+logger = logging.getLogger(__name__)
+
+# Tentative d'import de reportlab
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm, cm
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.lib.fonts import addMapping
+    REPORTLAB_AVAILABLE = True
+except ImportError:
+    REPORTLAB_AVAILABLE = False
+    logger.warning("reportlab not installed. PDF generation disabled.")
+
+
+class InvitationPDFService:
+    """
+    Service de génération d'invitation PDF avec QR code.
+    """
+    
+    def __init__(self, guest_response):
+        self.guest_response = guest_response
+        self.event = guest_response.event
+    
+    def generate(self):
+        """
+        Génère le PDF d'invitation et retourne le contenu binaire.
+        """
+        if not REPORTLAB_AVAILABLE:
+            logger.error("reportlab is not installed. Cannot generate PDF.")
+            return None
+        
+        buffer = BytesIO()
+        
+        try:
+            # Création du document
+            doc = SimpleDocTemplate(
+                buffer,
+                pagesize=A4,
+                rightMargin=50,
+                leftMargin=50,
+                topMargin=50,
+                bottomMargin=50
+            )
+            
+            styles = getSampleStyleSheet()
+            story = []
+            
+            # Styles personnalisés
+            title_style = ParagraphStyle(
+                'TitleStyle',
+                parent=styles['Heading1'],
+                fontSize=28,
+                textColor=colors.HexColor('#2C3E50'),
+                alignment=TA_CENTER,
+                spaceAfter=30,
+                fontName='Helvetica-Bold'
+            )
+            
+            subtitle_style = ParagraphStyle(
+                'SubtitleStyle',
+                parent=styles['Heading2'],
+                fontSize=18,
+                textColor=colors.HexColor('#8B5CF6'),
+                alignment=TA_CENTER,
+                spaceAfter=20,
+                fontName='Helvetica'
+            )
+            
+            body_style = ParagraphStyle(
+                'BodyStyle',
+                parent=styles['Normal'],
+                fontSize=12,
+                textColor=colors.HexColor('#333333'),
+                alignment=TA_LEFT,
+                spaceAfter=8,
+                fontName='Helvetica'
+            )
+            
+            # --- Titre ---
+            story.append(Paragraph("INVITATION", title_style))
+            story.append(Spacer(1, 10))
+            story.append(Paragraph(self.event.name, subtitle_style))
+            story.append(Spacer(1, 20))
+            
+            # --- Destinataire ---
+            guest_name = self.guest_response.get_full_name()
+            salutation = "Madame" if self.guest_response.first_name.lower() in [
+                'marie', 'jeanne', 'claire', 'sophie', 'anne', 'catherine', 
+                'elisabeth', 'françoise', 'nathalie', 'isabelle', 'sylvie', 
+                'christine', 'laurence', 'dominique', 'valérie', 'patricia', 
+                'brigitte', 'nicole', 'monique', 'micheline', 'marguerite', 
+                'yolande', 'germaine', 'léontine', 'joséphine', 'mariette'
+            ] else "Monsieur"
+            
+            story.append(Paragraph(
+                f"{salutation} <b>{guest_name}</b>",
+                body_style
+            ))
+            story.append(Spacer(1, 10))
+            
+            # --- Corps de l'invitation ---
+            story.append(Paragraph(
+                "Nous avons le plaisir de vous inviter à notre événement :",
+                body_style
+            ))
+            story.append(Spacer(1, 15))
+            
+            # Détails de l'événement
+            details_data = [
+                ["Date :", self.event.date.strftime('%d %B %Y') if self.event.date else 'À confirmer'],
+                ["Heure :", self.event.time.strftime('%H:%M') if self.event.time else 'À confirmer'],
+                ["Lieu :", self.event.location],
+            ]
+            if self.event.dress_code:
+                details_data.append(["Tenue :", self.event.dress_code])
+            
+            details_table = Table(details_data, colWidths=[80, 350])
+            details_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#E0E0E0')),
+            ]))
+            story.append(details_table)
+            story.append(Spacer(1, 20))
+            
+            # --- Table assignée ---
+            if self.guest_response.table:
+                table_style = ParagraphStyle(
+                    'TableStyle',
+                    parent=styles['Normal'],
+                    fontSize=14,
+                    textColor=colors.HexColor('#8B5CF6'),
+                    alignment=TA_CENTER,
+                    fontName='Helvetica-Bold'
+                )
+                story.append(Paragraph(f"Table assignée : {self.guest_response.table.number}", table_style))
+                story.append(Spacer(1, 15))
+            
+            # --- Message de fin ---
+            story.append(Paragraph(
+                "Nous sommes impatients de vous accueillir et de partager ce moment avec vous.",
+                body_style
+            ))
+            story.append(Spacer(1, 10))
+            story.append(Paragraph(
+                "Veuillez confirmer votre présence en scannant le QR code ci-dessous.",
+                body_style
+            ))
+            story.append(Spacer(1, 20))
+            
+            # --- QR Code ---
+            qr = qrcode.QRCode(
+                version=1,
+                box_size=6,
+                border=2
+            )
+            qr.add_data(self.guest_response.get_invitation_link())
+            qr.make(fit=True)
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            
+            qr_buffer = BytesIO()
+            qr_img.save(qr_buffer, format='PNG')
+            qr_buffer.seek(0)
+            
+            qr_pil = PILImage.open(qr_buffer)
+            from reportlab.lib.utils import ImageReader
+            qr_reader = ImageReader(qr_pil)
+            
+            qr_table = Table([[Image(qr_reader, width=60*mm, height=60*mm)]])
+            qr_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ]))
+            story.append(qr_table)
+            story.append(Spacer(1, 10))
+            
+            qr_text_style = ParagraphStyle(
+                'QRTextStyle',
+                parent=styles['Italic'],
+                fontSize=10,
+                textColor=colors.HexColor('#666666'),
+                alignment=TA_CENTER
+            )
+            story.append(Paragraph("Scannez ce QR code pour confirmer votre présence", qr_text_style))
+            
+            # --- Pied de page ---
+            story.append(Spacer(1, 30))
+            footer_style = ParagraphStyle(
+                'FooterStyle',
+                parent=styles['Normal'],
+                fontSize=8,
+                textColor=colors.HexColor('#999999'),
+                alignment=TA_CENTER
+            )
+            year = self.event.date.strftime('%Y') if self.event.date else ''
+            story.append(Paragraph(
+                f"© {year} {self.event.name} - Document valable uniquement avec le QR code",
+                footer_style
+            ))
+            
+            # Construction du PDF
+            doc.build(story)
+            buffer.seek(0)
+            
+            return buffer.getvalue()
+        
+        except Exception as e:
+            logger.error(f"Erreur génération PDF: {str(e)}")
+            return None
+
+
+def generate_invitation_pdf(guest_response):
+    """
+    Fonction d'export pour compatibilité avec le code existant.
+    """
+    service = InvitationPDFService(guest_response)
+    return service.generate()

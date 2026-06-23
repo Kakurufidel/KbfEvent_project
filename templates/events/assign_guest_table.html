@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Réviser les tables" %} - {{ event.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-2xl font-bold">{% trans "Réviser les tables" %}</h1>
+            <p class="text-gray-400 text-sm">{{ event.name }}</p>
+        </div>
+        <a href="{% url 'events:event_detail' event.slug %}" class="btn-outline">
+            <i class="fas fa-arrow-left mr-1"></i>{% trans "Retour à l'événement" %}
+        </a>
+    </div>
+
+    <!-- Formulaire de déplacement -->
+    <div class="glass-card p-6 mb-6">
+        <h2 class="text-lg font-semibold mb-4">{% trans "Déplacer un invité" %}</h2>
+        <form method="post">
+            {% csrf_token %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">{% trans "Invité" %}</label>
+                    <select name="guest_id" class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400" required>
+                        <option value="">{% trans "Sélectionnez un invité" %}</option>
+                        {% for guest in guests %}
+                            <option value="{{ guest.id }}" {% if selected_guest_id == guest.id|stringformat:"i" %}selected{% endif %}>
+                                {{ guest.get_full_name }} (table: {{ guest.table.number|default:"non assignée" }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">{% trans "Nouvelle table" %}</label>
+                    <select name="table_id" class="w-full p-3 rounded-xl bg-white/10 border border-white/20 focus:outline-none focus:border-purple-400" required>
+                        <option value="">{% trans "Sélectionnez une table" %}</option>
+                        {% for table in tables %}
+                            <option value="{{ table.id }}">
+                                Table {{ table.number }} ({{ table.guests.count }}/{{ table.capacity }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button type="submit" class="btn-primary mt-4">
+                <i class="fas fa-arrows-alt-h mr-1"></i>{% trans "Déplacer" %}
+            </button>
+        </form>
+    </div>
+
+    <!-- Récapitulatif des tables -->
+    <div class="glass-card p-6">
+        <h2 class="text-lg font-semibold mb-4">{% trans "Récapitulatif des tables" %}</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for table in tables %}
+                <div class="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-semibold">{% trans "Table" %} {{ table.number }}</h3>
+                        <span class="text-sm text-gray-400">{{ table.guests.count }}/{{ table.capacity }}</span>
+                    </div>
+                    {% if table.name %}<p class="text-sm text-gray-400">{{ table.name }}</p>{% endif %}
+                    <div class="mt-2">
+                        {% for guest in table.guests.all %}
+                            <div class="text-sm text-gray-300 flex justify-between items-center py-1 border-b border-white/5">
+                                <span>{{ guest.get_full_name }}</span>
+                                <span class="text-xs text-gray-500">{{ guest.drink_display }}</span>
+                            </div>
+                        {% empty %}
+                            <p class="text-sm text-gray-500 italic">{% trans "Aucun invité" %}</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            {% empty %}
+                <p class="text-gray-400 col-span-2 text-center">{% trans "Aucune table créée." %}</p>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

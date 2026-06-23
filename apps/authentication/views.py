@@ -6,13 +6,15 @@ from django.views import View
 from django.views.generic import FormView, TemplateView
 from django.urls import reverse
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils import timezone
 from .forms import LoginForm, RegisterForm
-from apps.events.models import Event
+from apps.events.models import Event, EventCollaborator
 
 
 class HomeView(TemplateView):
     """Page d'accueil - redirige vers le dashboard si connecté"""
-    template_name = 'landing.html'  
+    template_name = 'landing.html'
+    
     def get(self, request, *args, **kwargs):
         if request.user.is_authenticated:
             return redirect('events:event_list')
@@ -22,16 +24,33 @@ class HomeView(TemplateView):
 def redirect_after_auth(request, user):
     """
     Fonction utilitaire pour rediriger après authentification.
-    Si un code co-organisateur est fourni, redirige vers l'événement correspondant.
+    Si un code co-organisateur est fourni, redirige vers l'événement correspondant
+    et ajoute l'utilisateur comme co-organisateur.
     """
     coorganizer_code = request.POST.get('coorganizer_code')
     if coorganizer_code:
         try:
             event = Event.objects.get(coorganizer_short_code=coorganizer_code.upper())
-            # CORRECTION : utilisation du slug au lieu de event_id
+            
+            # Ajouter l'utilisateur comme co-organisateur
+            collaborator, created = EventCollaborator.objects.get_or_create(
+                event=event,
+                user=user,
+                defaults={'status': 'accepted', 'accepted_at': timezone.now()}
+            )
+            if not created and collaborator.status == 'pending':
+                collaborator.status = 'accepted'
+                collaborator.accepted_at = timezone.now()
+                collaborator.save()
+            
+            messages.success(
+                request, 
+                _('Vous êtes maintenant co-organisateur de l\'événement "%s".') % event.name
+            )
             return redirect('events:event_detail', slug=event.slug)
         except Event.DoesNotExist:
             messages.warning(request, _('Le code co-organisateur est invalide.'))
+    
     # Sinon, rediriger vers la liste des événements
     return redirect('events:event_list')
 
@@ -55,7 +74,10 @@ class LoginView(FormView):
     def form_valid(self, form):
         user = form.get_user()
         login(self.request, user)
-        messages.success(self.request, _('Bon retour parmis nous, %(name)s !') % {'name': user.first_name})
+        messages.success(
+            self.request, 
+            _('Bon retour parmis nous, %(name)s !') % {'name': user.first_name}
+        )
         return redirect_after_auth(self.request, user)
 
     def form_invalid(self, form):
@@ -82,7 +104,10 @@ class RegisterView(FormView):
     def form_valid(self, form):
         user = form.save()
         login(self.request, user)
-        messages.success(self.request, _('Bienvenue ! Votre compte a été créé avec succès.'))
+        messages.success(
+            self.request, 
+            _('Bienvenue ! Votre compte a été créé avec succès.')
+        )
         return redirect_after_auth(self.request, user)
 
     def form_invalid(self, form):
@@ -125,29 +150,40 @@ class ContactView(View):
 
 
 class DashboardView(LoginRequiredMixin, TemplateView):
+    """Tableau de bord de l'utilisateur"""
     template_name = 'authentication/dashboard.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        from apps.events.models import Event, EventCollaborator
-
+        
         # Événements dont l'utilisateur est l'organisateur principal
         events = Event.objects.filter(main_organizer=self.request.user)
-        is_organizer = events.exists()  # True si au moins un événement où il est main_organizer
+        is_organizer = events.exists()
 
-        # Co-organisateurs (pour tous les événements dont il est main_organizer)
+        # Co-organisateurs des événements dont il est main_organizer
         collaborators = EventCollaborator.objects.filter(
             event__main_organizer=self.request.user,
             status='accepted'
         ).select_related('user')
 
+        # Événements où l'utilisateur est co-organisateur (et non main_organizer)
+        coorganized_events = Event.objects.filter(
+            collaborators__user=self.request.user,
+            collaborators__status='accepted'
+        ).exclude(main_organizer=self.request.user)
+
+        # Tous les événements où l'utilisateur est impliqué (organisateur ou co-organisateur)
+        all_events = events | coorganized_events
+
         context.update({
-            'events': events,
-            'total_events': events.count(),
+            'events': all_events.distinct(),
+            'total_events': all_events.count(),
+            'owned_events': events,
+            'coorganized_events': coorganized_events,
             'collaborators': collaborators,
-            'total_guests': 0,      # À calculer si besoin
+            'total_guests': 0,
             'total_responses': 0,
             'attendance_rate': 0,
-            'is_organizer': is_organizer,  # NOUVEAU
+            'is_organizer': is_organizer,
         })
         return context

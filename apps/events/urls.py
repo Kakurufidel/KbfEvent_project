@@ -23,4 +23,12 @@ urlpatterns = [
     path('tables/<int:pk>/edit/', views.TableUpdateView.as_view(), name='table_update'),
     path('tables/<int:pk>/delete/', views.TableDeleteView.as_view(), name='table_delete'),
     path('auto-assign/<int:event_id>/', views.AutoAssignTablesView.as_view(), name='auto_assign_tables'),
+    path('<int:event_id>/tables-pdf/', views.TablesPDFView.as_view(), name='tables_pdf'),
+    
+    path('<int:event_id>/export-tables-csv/', views.ExportTablesCSVView.as_view(), name='export_tables_csv'),
+    path('<int:event_id>/export-tables-excel/', views.ExportTablesExcelView.as_view(), name='export_tables_excel'),
+
+    # Révision manuelle des tables
+    path('<int:event_id>/assign-table/', views.AssignGuestTableView.as_view(), name='assign_guest_table'),
+
     ]
