@@ -20,10 +20,6 @@ from .forms import TableForm
 from apps.guests.services import TableAssignmentService
 from django.http import HttpResponse
 from apps.guests.models import GuestResponse
-
-
-
-
 from .forms import EventForm
 from .models import Event, EventCollaborator
 
@@ -359,24 +355,19 @@ class TableCreateView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
     form_class = TableForm
     template_name = 'events/table_form.html'
 
-    def test_func(self):
-        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
-        return self.request.user == self.event.main_organizer
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['event'] = self.event
-        context['title'] = _('Créer une table')
-        return context
-
-    def form_valid(self, form):
-        form.instance.event = self.event
-        messages.success(self.request, _('Table créée avec succès.'))
-        return super().form_valid(form)
-
-    def get_success_url(self):
-        return reverse_lazy('events:table_list', kwargs={'event_id': self.event.id})
-
+    def get_initial(self):
+        initial = super().get_initial()
+        # Générer automatiquement le prochain numéro de table
+        last_table = Table.objects.filter(event=self.event).order_by('-number').first()
+        if last_table:
+            try:
+                next_number = int(last_table.number) + 1
+                initial['number'] = str(next_number)
+            except ValueError:
+                initial['number'] = '1'
+        else:
+            initial['number'] = '1'
+        return initial
 
 class TableUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = Table
