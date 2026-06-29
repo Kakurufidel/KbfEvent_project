@@ -298,6 +298,7 @@
                     <a href="{% url 'events:table_list' event.id %}" class="px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-sm">
                         <i class="fas fa-chair mr-1"></i>{% trans "Gérer les tables" %}
                     </a>
+                    
                     {% comment %} <a href="{% url 'guests:invitation_pdf' guest.invitation_token %}" class="btn-primary">
                         <i class="fas fa-file-pdf mr-1"></i>{% trans "Télécharger l'invitation" %}
                     </a>
@@ -310,6 +311,9 @@
                             <i class="fas fa-random mr-1"></i>{% trans "Attribuer tables" %}
                         </button>
                     </form>
+                    <a href="{% url 'expenses:estimation' event.id %}" class="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-sm">
+                        <i class="fas fa-calculator mr-1"></i>{% trans "Estimation dépenses" %}
+                    </a>
                 </div>
                 <p class="text-xs text-gray-400 mt-3">
                     {% blocktrans with invited=stats.total_invited verified=stats.verified unverified=stats.unverified %}

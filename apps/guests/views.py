@@ -16,6 +16,9 @@ from apps.events.models import Event
 from .models import GuestResponse, InvitedGuest
 from .forms import RSVPForm, InvitedGuestForm, GuestBulkImportForm
 from .services import import_guests_from_excel, generate_invitation_pdf
+from django.core.exceptions import PermissionDenied
+from django.conf import settings
+from django.db.models import Q
 
 logger = logging.getLogger(__name__)
 
@@ -302,7 +305,7 @@ class AddInvitedGuestView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 class InvitedGuestListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     """
     Liste des invités pré-enregistrés (InvitedGuest) pour un événement.
-    Accessible uniquement à l'organisateur principal.
+    Accessible à l'organisateur principal et aux co-organisateurs acceptés.
     """
     model = InvitedGuest
     template_name = 'guests/invited_guest_list.html'
@@ -310,18 +313,64 @@ class InvitedGuestListView(LoginRequiredMixin, UserPassesTestMixin, ListView):
     paginate_by = 20
 
     def test_func(self):
-        self.event = get_object_or_404(Event, id=self.kwargs['event_id'])
-        return self.request.user == self.event.main_organizer
+        self.event = get_object_or_404(Event, id=self.kwargs.get('event_id'))
+        user = self.request.user
+        is_organizer = (self.event.main_organizer == user)
+        is_collaborator = self.event.collaborators.filter(user=user, status='accepted').exists()
+        return is_organizer or is_collaborator
+
+    def get_paginate_by(self, queryset):
+        per_page = self.request.GET.get('per_page')
+        if per_page and per_page.isdigit():
+            per_page = int(per_page)
+            if per_page in [10, 15, 20, 30, 50, 100]:
+                return per_page
+        return getattr(settings, 'GUESTS_PER_PAGE', 20)
 
     def get_queryset(self):
-        return InvitedGuest.objects.filter(event=self.event).order_by('last_name', 'first_name')
+        queryset = InvitedGuest.objects.filter(event=self.event)
+        
+        # Optimisation : ne charger que les champs nécessaires
+        queryset = queryset.only(
+            'id', 'first_name', 'last_name', 'middle_name', 
+            'email', 'phone', 'created_at', 'table_id'
+        ).select_related('table')
+        
+        # Recherche
+        search_query = self.request.GET.get('q', '')
+        if search_query:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query) |
+                Q(middle_name__icontains=search_query) |
+                Q(email__icontains=search_query)
+            )
+        
+        # Tri
+        sort_by = self.request.GET.get('sort', 'last_name')
+        if sort_by in ['first_name', 'last_name', 'email', 'created_at']:
+            queryset = queryset.order_by(sort_by)
+        else:
+            queryset = queryset.order_by('last_name', 'first_name')
+        
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['event'] = self.event
-        context['total'] = self.get_queryset().count()
+        
+        # Statistiques optimisées (un seul count)
+        qs = InvitedGuest.objects.filter(event=self.event)
+        context['total'] = qs.count()
+        context['has_table'] = qs.filter(table__isnull=False).count()
+        context['no_table'] = context['total'] - context['has_table']
+        
+        # Paramètres de recherche et tri
+        context['search_query'] = self.request.GET.get('q', '')
+        context['current_sort'] = self.request.GET.get('sort', 'last_name')
+        context['current_per_page'] = self.get_paginate_by(self.get_queryset())
+        
         return context
-
 
 class ExportInvitedCSVView(LoginRequiredMixin, UserPassesTestMixin, View):
     """

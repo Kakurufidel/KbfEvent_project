@@ -202,7 +202,7 @@ class JoinCoOrganizerView(FormView):
     def form_valid(self, form):
         # Créer l'utilisateur
         user = form.save()
-        
+    
         # Connecter l'utilisateur
         login(self.request, user)
         

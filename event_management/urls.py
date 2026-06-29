@@ -11,7 +11,10 @@ urlpatterns = [
     path('accounts/', include('apps.authentication.urls')),
     path('events/', include('apps.events.urls')),
     path('guests/', include('apps.guests.urls')),
+    path('expenses/', include('apps.expenses.urls')),
+
     path('i18n/', set_language, name='set_language'),
+    
 ]
 
 if settings.DEBUG:

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 {% load i18n %}
 
-{% block title %}{% trans "Invités pré-enregistrés" %} - {{ event.name }}{% endblock %}
+{% block title %}{% trans "Official Guests" %} - {{ event.name }}{% endblock %}
 
 {% block content %}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
@@ -11,15 +11,13 @@
             <a href="{% url 'events:event_detail' event.slug %}" class="text-purple-400 hover:underline text-sm">
                 <i class="fas fa-arrow-left mr-1"></i>{% trans "Retour à l'événement" %}
             </a>
-            <h1 class="text-2xl md:text-3xl font-bold mt-1">{% trans "Invités pré-enregistrés" %}</h1>
+            <h1 class="text-2xl md:text-3xl font-bold mt-1">{{ event.name }}</h1>
             <p class="text-gray-400 text-sm">
-                {% blocktrans with total=total %}Total : {{ total }} invités officiels.{% endblocktrans %}
+                {% trans "Liste des invités officiels (pré-enregistrés)" %}
+                <span class="ml-2 text-xs bg-purple-500/20 px-2 py-0.5 rounded-full">{{ total }} {% trans "invités" %}</span>
             </p>
         </div>
         <div class="flex gap-2">
-            <a href="{% url 'guests:bulk_import' event.id %}" class="btn-primary text-sm">
-                <i class="fas fa-file-upload mr-1"></i>{% trans "Importer Excel" %}
-            </a>
             <a href="{% url 'guests:add_guest' event.id %}" class="btn-primary text-sm">
                 <i class="fas fa-user-plus mr-1"></i>{% trans "Ajouter" %}
             </a>
@@ -32,6 +30,58 @@
         </div>
     </div>
 
+    <!-- Statistiques -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        <div class="glass-card p-3 text-center">
+            <div class="text-xl font-bold text-purple-400">{{ total }}</div>
+            <div class="text-xs text-gray-400">{% trans "Total" %}</div>
+        </div>
+        <div class="glass-card p-3 text-center">
+            <div class="text-xl font-bold text-green-400">{{ has_table }}</div>
+            <div class="text-xs text-gray-400">{% trans "Avec table" %}</div>
+        </div>
+        <div class="glass-card p-3 text-center">
+            <div class="text-xl font-bold text-yellow-400">{{ no_table }}</div>
+            <div class="text-xs text-gray-400">{% trans "Sans table" %}</div>
+        </div>
+        <div class="glass-card p-3 text-center">
+            <div class="text-xl font-bold text-cyan-400">
+                {{ invited_guests|length|default:0 }}
+            </div>
+            <div class="text-xs text-gray-400">{% trans "Affichés" %}</div>
+        </div>
+    </div>
+
+    <!-- Barre de recherche et tri -->
+    <div class="flex flex-col sm:flex-row justify-between gap-3 mb-4">
+        <form method="get" class="flex flex-wrap items-center gap-2">
+            <input type="text" name="q" value="{{ search_query }}" 
+                   placeholder="{% trans 'Rechercher...' %}" 
+                   class="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-sm focus:outline-none focus:border-purple-400">
+            <select name="sort" class="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-sm">
+                <option value="last_name" {% if current_sort == 'last_name' %}selected{% endif %}>{% trans "Nom" %}</option>
+                <option value="first_name" {% if current_sort == 'first_name' %}selected{% endif %}>{% trans "Prénom" %}</option>
+                <option value="email" {% if current_sort == 'email' %}selected{% endif %}>{% trans "Email" %}</option>
+                <option value="created_at" {% if current_sort == 'created_at' %}selected{% endif %}>{% trans "Date d'ajout" %}</option>
+            </select>
+            <button type="submit" class="btn-primary text-sm px-3 py-1">{% trans "Filtrer" %}</button>
+            {% if search_query or current_sort != 'last_name' %}
+                <a href="?" class="text-sm text-gray-400 hover:text-white">{% trans "Réinitialiser" %}</a>
+            {% endif %}
+        </form>
+        
+        <form method="get" class="flex items-center gap-2">
+            <label for="per_page" class="text-sm text-gray-400">{% trans "Afficher" %}</label>
+            <select name="per_page" id="per_page" onchange="this.form.submit()" class="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-sm">
+                <option value="15" {% if current_per_page == 15 %}selected{% endif %}>15</option>
+                <option value="20" {% if current_per_page == 20 %}selected{% endif %}>20</option>
+                <option value="50" {% if current_per_page == 50 %}selected{% endif %}>50</option>
+                <option value="100" {% if current_per_page == 100 %}selected{% endif %}>100</option>
+            </select>
+            <span class="text-sm text-gray-400">{% trans "par page" %}</span>
+        </form>
+    </div>
+
     <!-- Tableau -->
     <div class="glass-card p-4 md:p-6 overflow-x-auto">
         {% if invited_guests %}
@@ -39,22 +89,22 @@
                 <thead>
                     <tr class="border-b border-white/10 text-left text-gray-400">
                         <th class="pb-3 pr-2">{% trans "Prénom" %}</th>
-                        <th class="pb-3 pr-2">{% trans "Nom" %}</th>
                         <th class="pb-3 pr-2">{% trans "Postnom" %}</th>
+                        <th class="pb-3 pr-2">{% trans "Nom" %}</th>
                         <th class="pb-3 pr-2">{% trans "Email" %}</th>
                         <th class="pb-3 pr-2">{% trans "Téléphone" %}</th>
                         <th class="pb-3 pr-2">{% trans "Table" %}</th>
-                        <th class="pb-3 pr-2">{% trans "Ajouté le" %}</th>
+                        <th class="pb-3">{% trans "Réponse" %}</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for guest in invited_guests %}
                     <tr class="border-b border-white/5 hover:bg-white/5 transition">
                         <td class="py-3 pr-2">{{ guest.first_name }}</td>
-                        <td class="py-3 pr-2">{{ guest.last_name }}</td>
                         <td class="py-3 pr-2">{{ guest.middle_name|default:"-" }}</td>
-                        <td class="py-3 pr-2">{{ guest.email|default:"-" }}</td>
-                        <td class="py-3 pr-2">{{ guest.phone|default:"-" }}</td>
+                        <td class="py-3 pr-2 font-medium">{{ guest.last_name }}</td>
+                        <td class="py-3 pr-2 text-gray-300">{{ guest.email|default:"-" }}</td>
+                        <td class="py-3 pr-2 text-gray-300">{{ guest.phone|default:"-" }}</td>
                         <td class="py-3 pr-2">
                             {% if guest.table %}
                                 <span class="bg-purple-500/20 px-2 py-0.5 rounded-full text-purple-400">{{ guest.table.number }}</span>
@@ -62,7 +112,19 @@
                                 <span class="text-gray-500">-</span>
                             {% endif %}
                         </td>
-                        <td class="py-3 pr-2">{{ guest.created_at|date:"d/m/Y H:i" }}</td>
+                        <td class="py-3">
+                            {% with response=guest.email|stringformat:"s" %}
+                                {% if guest.email %}
+                                    {% if guest.has_responded %}
+                                        <span class="text-green-400"><i class="fas fa-check-circle mr-1"></i>{% trans "Oui" %}</span>
+                                    {% else %}
+                                        <span class="text-yellow-400"><i class="fas fa-clock mr-1"></i>{% trans "En attente" %}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-gray-500">-</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -72,8 +134,8 @@
             {% if is_paginated %}
             <div class="flex flex-wrap justify-center gap-2 mt-6">
                 {% if page_obj.has_previous %}
-                    <a href="?page=1" class="btn-outline text-sm px-3 py-1">&laquo;</a>
-                    <a href="?page={{ page_obj.previous_page_number }}" class="btn-outline text-sm px-3 py-1">&lsaquo;</a>
+                    <a href="?page=1&per_page={{ current_per_page }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn-outline text-sm px-3 py-1">&laquo;</a>
+                    <a href="?page={{ page_obj.previous_page_number }}&per_page={{ current_per_page }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn-outline text-sm px-3 py-1">&lsaquo;</a>
                 {% endif %}
                 <span class="text-sm text-gray-400 py-1">
                     {% blocktrans with current=page_obj.number total=page_obj.paginator.num_pages %}
@@ -81,8 +143,8 @@
                     {% endblocktrans %}
                 </span>
                 {% if page_obj.has_next %}
-                    <a href="?page={{ page_obj.next_page_number }}" class="btn-outline text-sm px-3 py-1">&rsaquo;</a>
-                    <a href="?page={{ page_obj.paginator.num_pages }}" class="btn-outline text-sm px-3 py-1">&raquo;</a>
+                    <a href="?page={{ page_obj.next_page_number }}&per_page={{ current_per_page }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn-outline text-sm px-3 py-1">&rsaquo;</a>
+                    <a href="?page={{ page_obj.paginator.num_pages }}&per_page={{ current_per_page }}{% if search_query %}&q={{ search_query }}{% endif %}" class="btn-outline text-sm px-3 py-1">&raquo;</a>
                 {% endif %}
             </div>
             {% endif %}
@@ -91,7 +153,15 @@
             <div class="text-center py-10 text-gray-400">
                 <i class="fas fa-users-slash text-4xl mb-3 block"></i>
                 <p>{% trans "Aucun invité pré-enregistré." %}</p>
-                <p class="text-sm">{% trans "Importez un fichier Excel ou ajoutez manuellement des invités." %}</p>
+                <p class="text-sm">{% trans "Importez un fichier Excel ou ajoutez manuellement." %}</p>
+                <div class="mt-4 flex flex-wrap justify-center gap-3">
+                    <a href="{% url 'guests:bulk_import' event.id %}" class="btn-primary text-sm">
+                        <i class="fas fa-file-upload mr-1"></i>{% trans "Importer Excel" %}
+                    </a>
+                    <a href="{% url 'guests:add_guest' event.id %}" class="btn-primary text-sm">
+                        <i class="fas fa-user-plus mr-1"></i>{% trans "Ajouter manuellement" %}
+                    </a>
+                </div>
             </div>
         {% endif %}
     </div>
@@ -101,8 +171,8 @@
         <a href="{% url 'events:event_detail' event.slug %}" class="btn-outline">
             <i class="fas fa-arrow-left mr-1"></i>{% trans "Retour à l'événement" %}
         </a>
-        <a href="{% url 'guests:bulk_import' event.id %}" class="btn-primary">
-            <i class="fas fa-file-upload mr-1"></i>{% trans "Importer Excel" %}
+        <a href="{% url 'guests:guest_list' event.id %}" class="btn-outline">
+            <i class="fas fa-list mr-1"></i>{% trans "Voir les réponses" %}
         </a>
     </div>
 </div>

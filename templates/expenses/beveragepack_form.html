@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - KbfEven{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <div class="glass-card p-6 md:p-8">
+        <h1 class="text-2xl font-bold mb-6">{{ title }}</h1>
+        <form method="post">
+            {% csrf_token %}
+            <div class="space-y-4">
+                {{ form.as_p }}
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button type="submit" class="btn-primary">{% trans "Enregistrer" %}</button>
+                <a href="{% url 'expenses:beveragepack_list' event.id %}" class="btn-outline">{% trans "Annuler" %}</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
