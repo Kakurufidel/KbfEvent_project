@@ -128,7 +128,7 @@
             <div class="glass-card p-5">
                 <h2 class="text-lg font-semibold mb-3">{% trans "Co-organisateurs" %}</h2>
                 {% if collaborators %}
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         <div class="flex items-center gap-2 p-2 rounded-lg bg-purple-500/10">
                             <div>
                                 <p class="text-sm font-semibold">{{ event.main_organizer.first_name }} {{ event.main_organizer.last_name }}</p>
@@ -136,10 +136,22 @@
                             </div>
                         </div>
                         {% for collab in collaborators %}
-                            <div class="flex items-center gap-2 p-2 rounded-lg bg-white/5">
+                            <div class="flex items-center justify-between gap-2 p-2 rounded-lg bg-white/5">
                                 <div>
                                     <p class="text-sm font-semibold">{{ collab.user.first_name }} {{ collab.user.last_name }}</p>
                                     <p class="text-xs text-gray-400">{{ collab.user.email }}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <form method="post" action="{% url 'events:collaborator_toggle_scan' collab.id %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-xs px-2 py-1 rounded-full transition {% if collab.can_scan %}bg-green-500/20 text-green-400 hover:bg-green-500/30{% else %}bg-gray-500/20 text-gray-400 hover:bg-gray-500/30{% endif %}">
+                                            <i class="fas fa-qrcode mr-1"></i>
+                                            {% if collab.can_scan %}{% trans "Scan: ON" %}{% else %}{% trans "Scan: OFF" %}{% endif %}
+                                        </button>
+                                    </form>
+                                    <a href="{% url 'events:collaborator_delete' collab.id %}" class="text-red-400 hover:text-red-300 text-xs transition">
+                                        <i class="fas fa-user-minus"></i>
+                                    </a>
                                 </div>
                             </div>
                         {% endfor %}
@@ -272,10 +284,18 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="mt-3 text-right">
+                <div class="mt-3 flex flex-wrap justify-between items-center">
                     <a href="{% url 'guests:guest_list' event.id %}" class="text-cyan-400 hover:underline text-sm">
                         {% trans "Voir toutes les réponses" %} <i class="fas fa-arrow-right ml-1"></i>
                     </a>
+                    <div class="flex gap-2">
+                        <a href="{% url 'guests:export_checkins_csv' event.id %}" class="text-sm text-cyan-400 hover:underline">
+                            <i class="fas fa-file-csv mr-1"></i>{% trans "Check-ins CSV" %}
+                        </a>
+                        <a href="{% url 'guests:export_checkins_excel' event.id %}" class="text-sm text-cyan-400 hover:underline">
+                            <i class="fas fa-file-excel mr-1"></i>{% trans "Check-ins Excel" %}
+                        </a>
+                    </div>
                 </div>
             </div>
 
@@ -298,13 +318,6 @@
                     <a href="{% url 'events:table_list' event.id %}" class="px-4 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-sm">
                         <i class="fas fa-chair mr-1"></i>{% trans "Gérer les tables" %}
                     </a>
-                    
-                    {% comment %} <a href="{% url 'guests:invitation_pdf' guest.invitation_token %}" class="btn-primary">
-                        <i class="fas fa-file-pdf mr-1"></i>{% trans "Télécharger l'invitation" %}
-                    </a>
-                    <a href="{% url 'guests:invitation_preview' guest.invitation_token %}" target="_blank" class="btn-outline">
-                        <i class="fas fa-eye mr-1"></i>{% trans "Prévisualiser" %}
-                    </a> {% endcomment %}
                     <form method="post" action="{% url 'events:auto_assign_tables' event.id %}" class="inline">
                         {% csrf_token %}
                         <button type="submit" class="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-sm">
@@ -314,6 +327,15 @@
                     <a href="{% url 'expenses:estimation' event.id %}" class="px-4 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-sm">
                         <i class="fas fa-calculator mr-1"></i>{% trans "Estimation dépenses" %}
                     </a>
+                    {% if not event.is_paid %}
+                        <a href="{% url 'payments:request' event.id %}" class="px-4 py-2 rounded-lg bg-yellow-500/20 hover:bg-yellow-500/30 text-sm">
+                            <i class="fas fa-credit-card mr-1"></i>{% trans "Payer" %}
+                        </a>
+                    {% else %}
+                        <span class="px-4 py-2 rounded-lg bg-green-500/20 text-green-400 text-sm">
+                            <i class="fas fa-check-circle mr-1"></i>{% trans "Payé" %}
+                        </span>
+                    {% endif %}
                 </div>
                 <p class="text-xs text-gray-400 mt-3">
                     {% blocktrans with invited=stats.total_invited verified=stats.verified unverified=stats.unverified %}

@@ -9,6 +9,7 @@ urlpatterns = [
     path('event/<int:event_id>/packs/create/', views.BeveragePackCreateView.as_view(), name='beveragepack_create'),
     path('packs/<int:pk>/edit/', views.BeveragePackUpdateView.as_view(), name='beveragepack_update'),
     path('packs/<int:pk>/delete/', views.BeveragePackDeleteView.as_view(), name='beveragepack_delete'),
+    
 
     # Estimation
     path('event/<int:event_id>/estimation/', views.EstimationDashboardView.as_view(), name='estimation'),

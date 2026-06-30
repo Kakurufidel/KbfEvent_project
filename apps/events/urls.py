@@ -16,6 +16,8 @@ urlpatterns = [
     # Co-organisateur – lien unique pour les co-organisateurs
     path('<slug:slug>/join/<str:token>/', views.JoinCoOrganizerView.as_view(), name='join_coorganizer'),
     path('join/<str:short_code>/', views.JoinCoOrganizerShortCodeView.as_view(), name='join_coorganizer_short'),
+    path('collaborator/<int:pk>/delete/', views.CollaboratorDeleteView.as_view(), name='collaborator_delete'),
+    path('collaborator/<int:pk>/toggle-scan/', views.CollaboratorScanPermissionView.as_view(), name='collaborator_toggle_scan'),
     
     # Tables
     path('<int:event_id>/tables/', views.TableListView.as_view(), name='table_list'),

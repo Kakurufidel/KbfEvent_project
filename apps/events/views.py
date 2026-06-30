@@ -654,3 +654,35 @@ class ExportTablesExcelView(LoginRequiredMixin, UserPassesTestMixin, View):
         response['Content-Disposition'] = f'attachment; filename="tables_guests_{self.event.id}.xlsx"'
         wb.save(response)
         return response
+    
+
+class CollaboratorScanPermissionView(LoginRequiredMixin, UserPassesTestMixin, View):
+    """Basculer le droit de scan d'un co-organisateur"""
+    
+    def test_func(self):
+        collaborator = get_object_or_404(EventCollaborator, id=self.kwargs['pk'])
+        return self.request.user == collaborator.event.main_organizer
+    
+    def post(self, request, pk):
+        collaborator = get_object_or_404(EventCollaborator, id=pk)
+        collaborator.can_scan = not collaborator.can_scan
+        collaborator.save()
+        messages.success(request, _('Droit de scan modifié.'))
+        return redirect('events:event_detail', slug=collaborator.event.slug)
+    
+class CollaboratorDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    """Supprimer un co-organisateur"""
+    model = EventCollaborator
+    template_name = 'events/collaborator_confirm_delete.html'
+    
+    def test_func(self):
+        collaborator = self.get_object()
+        return self.request.user == collaborator.event.main_organizer
+    
+    def get_success_url(self):
+        return reverse_lazy('events:event_detail', kwargs={'slug': self.object.event.slug})
+    
+    def delete(self, request, *args, **kwargs):
+        collaborator = self.get_object()
+        messages.success(request, _('Co-organisateur retiré avec succès.'))
+        return super().delete(request, *args, **kwargs)

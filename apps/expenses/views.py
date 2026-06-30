@@ -232,3 +232,4 @@ class ExportDevisPDFView(LoginRequiredMixin, UserPassesTestMixin, View):
         response = HttpResponse(buffer, content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="devis_{event.slug}.pdf"'
         return response
+    
