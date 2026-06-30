@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - KbfEven{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <div class="glass-card p-6 md:p-8">
+        <div class="text-center mb-6">
+            <div class="w-16 h-16 mx-auto rounded-full bg-purple-500/20 flex items-center justify-center mb-4">
+                <i class="fas fa-credit-card text-2xl text-purple-400"></i>
+            </div>
+            <h1 class="text-2xl font-bold">{{ title }}</h1>
+            <p class="text-gray-400 text-sm mt-2">
+                {% blocktrans with event_name=event.name %}Demande de paiement pour "{{ event_name }}"{% endblocktrans %}
+            </p>
+        </div>
+
+        <div class="bg-white/5 p-4 rounded-xl mb-6">
+            <h3 class="font-semibold mb-2">{% trans "Plans disponibles" %}</h3>
+            <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 rounded-lg bg-purple-500/10 text-center">
+                    <p class="font-bold text-purple-400">{% trans "Basic" %}</p>
+                    <p class="text-sm text-gray-400">25 $</p>
+                    <p class="text-xs text-gray-500">400 invités max</p>
+                </div>
+                <div class="p-3 rounded-lg bg-cyan-500/10 text-center">
+                    <p class="font-bold text-cyan-400">{% trans "Premium" %}</p>
+                    <p class="text-sm text-gray-400">40 $</p>
+                    <p class="text-xs text-gray-500">Invités illimités</p>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">{{ form.plan.label }}</label>
+                    {{ form.plan }}
+                    {% if form.plan.errors %}<p class="text-red-400 text-xs mt-1">{{ form.plan.errors.0 }}</p>{% endif %}
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">{{ form.screenshot.label }}</label>
+                    {{ form.screenshot }}
+                    <p class="text-gray-500 text-xs mt-1">{{ form.screenshot.help_text }}</p>
+                    {% if form.screenshot.errors %}<p class="text-red-400 text-xs mt-1">{{ form.screenshot.errors.0 }}</p>{% endif %}
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button type="submit" class="btn-primary flex-1">
+                    <i class="fas fa-paper-plane mr-2"></i>{% trans "Envoyer la demande" %}
+                </button>
+                <a href="{% url 'events:event_detail' event.slug %}" class="btn-outline">{% trans "Annuler" %}</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

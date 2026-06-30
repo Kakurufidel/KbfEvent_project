@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Demandes de paiement" %} - Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold">{% trans "Demandes de paiement" %}</h1>
+        <div class="flex gap-2 text-sm">
+            <span class="text-yellow-400">{{ counts.pending }} {% trans "en attente" %}</span>
+            <span class="text-green-400">{{ counts.approved }} {% trans "approuvées" %}</span>
+            <span class="text-red-400">{{ counts.rejected }} {% trans "rejetées" %}</span>
+        </div>
+    </div>
+
+    <!-- Filtre -->
+    <div class="mb-4">
+        <form method="get" class="flex gap-2">
+            <select name="status" class="bg-white/10 border border-white/20 rounded-lg px-3 py-1 text-sm">
+                <option value="">{% trans "Tous" %}</option>
+                <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>{% trans "En attente" %}</option>
+                <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>{% trans "Approuvées" %}</option>
+                <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>{% trans "Rejetées" %}</option>
+            </select>
+            <button type="submit" class="btn-primary text-sm px-3 py-1">{% trans "Filtrer" %}</button>
+        </form>
+    </div>
+
+    <!-- Liste -->
+    <div class="glass-card p-4 overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="border-b border-white/10 text-left text-gray-400">
+                    <th class="pb-3 pr-2">{% trans "Événement" %}</th>
+                    <th class="pb-3 pr-2">{% trans "Utilisateur" %}</th>
+                    <th class="pb-3 pr-2">{% trans "Plan" %}</th>
+                    <th class="pb-3 pr-2">{% trans "Montant" %}</th>
+                    <th class="pb-3 pr-2">{% trans "Statut" %}</th>
+                    <th class="pb-3 pr-2">{% trans "Date" %}</th>
+                    <th class="pb-3">{% trans "Action" %}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                    <tr class="border-b border-white/5 hover:bg-white/5 transition">
+                        <td class="py-3 pr-2 font-medium">{{ req.event.name }}</td>
+                        <td class="py-3 pr-2">{{ req.user.email }}</td>
+                        <td class="py-3 pr-2">{{ req.get_plan_display }}</td>
+                        <td class="py-3 pr-2">{{ req.amount|floatformat:2 }} $</td>
+                        <td class="py-3 pr-2">
+                            {% if req.status == 'pending' %}
+                                <span class="bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded-full">{% trans "En attente" %}</span>
+                            {% elif req.status == 'approved' %}
+                                <span class="bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full">{% trans "Approuvé" %}</span>
+                            {% else %}
+                                <span class="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full">{% trans "Rejeté" %}</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 pr-2 text-gray-400">{{ req.created_at|date:"d/m/Y H:i" }}</td>
+                        <td class="py-3">
+                            <a href="{% url 'payments:admin_approve' req.id %}" class="btn-primary text-sm px-3 py-1">
+                                <i class="fas fa-edit mr-1"></i>{% trans "Traiter" %}
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="7" class="text-center py-8 text-gray-400">
+                            {% trans "Aucune demande de paiement." %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        {% if is_paginated %}
+        <div class="flex justify-center gap-2 mt-4">
+            {% if page_obj.has_previous %}
+                <a href="?page=1&status={{ status_filter }}" class="btn-outline text-sm px-3 py-1">&laquo;</a>
+                <a href="?page={{ page_obj.previous_page_number }}&status={{ status_filter }}" class="btn-outline text-sm px-3 py-1">&lsaquo;</a>
+            {% endif %}
+            <span class="text-sm text-gray-400 py-1">Page {{ page_obj.number }} sur {{ page_obj.paginator.num_pages }}</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}&status={{ status_filter }}" class="btn-outline text-sm px-3 py-1">&rsaquo;</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}&status={{ status_filter }}" class="btn-outline text-sm px-3 py-1">&raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load i18n %}
+
+{% block title %}{{ title }} - Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+    <div class="glass-card p-6 md:p-8">
+        <h1 class="text-2xl font-bold mb-4">{{ title }}</h1>
+
+        <div class="bg-white/5 p-4 rounded-xl mb-6">
+            <div class="grid grid-cols-2 gap-3 text-sm">
+                <div><span class="text-gray-400">{% trans "Événement" %} :</span> {{ payment.event.name }}</div>
+                <div><span class="text-gray-400">{% trans "Utilisateur" %} :</span> {{ payment.user.email }}</div>
+                <div><span class="text-gray-400">{% trans "Plan" %} :</span> {{ payment.get_plan_display }}</div>
+                <div><span class="text-gray-400">{% trans "Montant" %} :</span> {{ payment.amount|floatformat:2 }} $</div>
+                <div class="col-span-2">
+                    <span class="text-gray-400">{% trans "Capture d'écran" %} :</span>
+                    <a href="{{ payment.screenshot.url }}" target="_blank" class="text-cyan-400 hover:underline">
+                        {% trans "Voir" %}
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <form method="post">
+            {% csrf_token %}
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold mb-1">{{ form.status.label }}</label>
+                    {{ form.status }}
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold mb-1">{{ form.admin_notes.label }}</label>
+                    {{ form.admin_notes }}
+                </div>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button type="submit" class="btn-primary flex-1">
+                    <i class="fas fa-check mr-1"></i>{% trans "Enregistrer" %}
+                </button>
+                <a href="{% url 'payments:admin_list' %}" class="btn-outline">{% trans "Annuler" %}</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

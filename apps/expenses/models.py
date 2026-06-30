@@ -15,8 +15,8 @@ class BeveragePack(models.Model):
     pack_price = models.DecimalField(_('prix par pack'), max_digits=12, decimal_places=2, default=0)
     unit_type = models.CharField(_('type d\'unité'), max_length=50, blank=True, help_text="ex: bouteille, canette")
     is_active = models.BooleanField(_('actif'), default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    # created_at = models.DateTimeField(auto_now_add=True)
+    # updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         verbose_name = _('pack de boisson')

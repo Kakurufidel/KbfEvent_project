@@ -1,7 +1,8 @@
-# apps/payments/models.py
 from django.db import models
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
+from apps.events.models import Event
+
 
 class PaymentRequest(models.Model):
     class Plan(models.TextChoices):
@@ -20,14 +21,14 @@ class PaymentRequest(models.Model):
         verbose_name=_('utilisateur'),
     )
     event = models.ForeignKey(
-        'events.Event',
+        Event,
         on_delete=models.CASCADE,
         related_name='payment_requests',
         verbose_name=_('événement'),
     )
     plan = models.CharField(_('plan'), max_length=10, choices=Plan.choices)
     amount = models.DecimalField(_('montant'), max_digits=10, decimal_places=2, editable=False)
-    screenshot = models.ImageField(_('capture d\'écran'), upload_to='payment_screenshots/')
+    screenshot = models.ImageField(_('capture d\'écran'), upload_to='payment_screenshots/%Y/%m/%d/')
     status = models.CharField(_('statut'), max_length=10, choices=Status.choices, default=Status.PENDING)
     admin_notes = models.TextField(_('notes admin'), blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -39,11 +40,11 @@ class PaymentRequest(models.Model):
         ordering = ['-created_at']
 
     def save(self, *args, **kwargs):
-        # Définir le montant selon le plan
-        if self.plan == self.Plan.BASIC:
-            self.amount = 25.00
-        else:
-            self.amount = 40.00
+        if not self.pk and not self.amount:
+            if self.plan == self.Plan.BASIC:
+                self.amount = 25.00
+            else:
+                self.amount = 40.00
         super().save(*args, **kwargs)
 
     def __str__(self):
